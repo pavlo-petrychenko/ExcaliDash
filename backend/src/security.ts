@@ -475,6 +475,7 @@ export const sanitizeDrawingData = (data: {
         "data:image/jpg",
         "data:image/gif",
         "data:image/webp",
+        "data:image/svg+xml",
       ];
 
       const dangerousProtocols = [

@@ -117,6 +117,33 @@ describe("Security Sanitization - Image Data URLs", () => {
       expect(resultDataUrl.length).toBe(originalDataUrl.length);
     });
 
+    it("should preserve svg image data URLs", () => {
+      const svgDataUrl =
+        "data:image/svg+xml;utf8," +
+        encodeURIComponent(
+          "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='80'><rect width='120' height='80' fill='#4f46e5'/></svg>"
+        );
+      const files = {
+        "file-1": {
+          id: "file-1",
+          mimeType: "image/svg+xml",
+          dataURL: svgDataUrl,
+          created: Date.now(),
+        },
+      };
+
+      const result = sanitizeDrawingData({
+        elements: [],
+        appState: { viewBackgroundColor: "#ffffff" },
+        files,
+      });
+
+      const resultFiles = result.files as Record<string, any>;
+      const resultDataUrl = resultFiles["file-1"].dataURL;
+
+      expect(resultDataUrl).toBe(svgDataUrl);
+    });
+
     it("should preserve large image data URLs (>10000 chars) - REGRESSION TEST for issue #17", () => {
       const files = createSampleFilesObject(1, "large");
       const originalDataUrl = Object.values(files)[0].dataURL;
