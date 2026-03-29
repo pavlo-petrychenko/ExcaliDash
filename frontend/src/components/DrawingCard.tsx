@@ -375,31 +375,55 @@ export const DrawingCard: React.FC<DrawingCardProps> = ({
             </p>
 
             <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => {
-                  if (isShared) return;
-                  setShowCollectionDropdown(!showCollectionDropdown);
-                }}
-                data-testid={`collection-picker-${drawing.id}`}
-                aria-haspopup="listbox"
-                aria-expanded={showCollectionDropdown}
-                disabled={isShared}
-                className={clsx(
-                  "px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide max-w-[120px] truncate transition-all border",
-                  isShared
-                    ? "bg-slate-100 dark:bg-neutral-800 text-slate-400 dark:text-neutral-500 border-slate-200 dark:border-neutral-700 cursor-not-allowed"
-                    : "bg-slate-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-200 text-slate-500 dark:text-neutral-400 cursor-pointer border-slate-100 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600",
-                )}
-              >
-                {isSharedCollection && drawing.creatorName
-                  ? drawing.creatorName
-                  : isShared
+              <div className="flex items-center gap-1 flex-wrap justify-end">
+                {/* Collection name badge */}
+                <button
+                  onClick={() => {
+                    if (isShared || isSharedCollection) return;
+                    setShowCollectionDropdown(!showCollectionDropdown);
+                  }}
+                  data-testid={`collection-picker-${drawing.id}`}
+                  aria-haspopup="listbox"
+                  aria-expanded={showCollectionDropdown}
+                  disabled={isShared || isSharedCollection}
+                  className={clsx(
+                    "px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide max-w-[120px] truncate transition-all border",
+                    isShared || isSharedCollection
+                      ? "bg-slate-100 dark:bg-neutral-800 text-slate-400 dark:text-neutral-500 border-slate-200 dark:border-neutral-700 cursor-not-allowed"
+                      : "bg-slate-50 dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-200 text-slate-500 dark:text-neutral-400 cursor-pointer border-slate-100 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600",
+                  )}
+                >
+                  {isShared
                     ? "Shared"
                     : drawing.collectionId
                       ? collections.find((c) => c.id === drawing.collectionId)
                           ?.name || "Collection"
                       : "Unorganized"}
-              </button>
+                </button>
+
+                {/* Creator badge */}
+                {drawing.creatorName && (
+                  <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border bg-indigo-50 dark:bg-indigo-900/20 text-indigo-500 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800">
+                    {drawing.creatorName}
+                  </span>
+                )}
+
+                {/* Access level badge */}
+                {isSharedCollection &&
+                  drawing.accessLevel &&
+                  drawing.accessLevel !== "owner" && (
+                    <span
+                      className={clsx(
+                        "px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border",
+                        drawing.accessLevel === "edit"
+                          ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                          : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800",
+                      )}
+                    >
+                      {drawing.accessLevel === "edit" ? "Editor" : "Viewer"}
+                    </span>
+                  )}
+              </div>
 
               {!isShared && showCollectionDropdown && (
                 <>

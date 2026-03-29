@@ -122,7 +122,7 @@ const SidebarItem: React.FC<SidebarItemProps> = ({
           </span>
           <span className="min-w-0 flex-1 text-left font-bold">{label}</span>
           {extraAction && (
-            <div className="opacity-0 group-hover/item:opacity-100 transition-all duration-200 flex items-center gap-1 flex-shrink-0">
+            <div className="flex items-center gap-1 flex-shrink-0">
               {extraAction}
             </div>
           )}
@@ -327,6 +327,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   onEditSubmit={handleEditSubmit}
                   onEditBlur={() => setEditingId(null)}
                   onDrop={onDrop}
+                  extraAction={
+                    <div className="flex items-center gap-1">
+                      {/* Shared indicator — only for owned collections that have been shared */}
+                      {collection.isOwner !== false && collection.isShared && (
+                        <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
+                          Shared
+                        </span>
+                      )}
+                      {/* Role badge */}
+                      <span
+                        className={clsx(
+                          "text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0",
+                          collection.isOwner === false
+                            ? collection.sharedRole === "edit"
+                              ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+                              : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800"
+                            : "bg-slate-100 dark:bg-neutral-800 text-slate-400 dark:text-neutral-500 border-slate-200 dark:border-neutral-700",
+                        )}
+                      >
+                        {collection.isOwner === false
+                          ? collection.sharedRole === "edit"
+                            ? "Editor"
+                            : "Viewer"
+                          : "Owner"}
+                      </span>
+                    </div>
+                  }
                 />
               ))}
           </div>

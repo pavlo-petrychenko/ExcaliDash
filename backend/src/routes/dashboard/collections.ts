@@ -34,6 +34,19 @@ export const registerCollectionRoutes = (
       const hasInternalTrash = rawCollections.some(
         (c) => c.id === trashCollectionId,
       );
+      const shareCountMap = await prisma.collectionShare.groupBy({
+        by: ["collectionId"],
+        where: {
+          collectionId: {
+            in: rawCollections.map((c) => c.id),
+          },
+        },
+        _count: { collectionId: true },
+      });
+      const sharedCollectionIds = new Set(
+        shareCountMap.map((s) => s.collectionId),
+      );
+
       const ownedCollections = rawCollections
         .filter((c) => !(hasInternalTrash && c.id === "trash"))
         .map((c) =>
@@ -44,8 +57,14 @@ export const registerCollectionRoutes = (
                 name: "Trash",
                 sharedRole: null,
                 isOwner: true,
+                isShared: false,
               }
-            : { ...c, sharedRole: null, isOwner: true },
+            : {
+                ...c,
+                sharedRole: null,
+                isOwner: true,
+                isShared: sharedCollectionIds.has(c.id),
+              },
         );
 
       // Collections shared with this user by others
@@ -101,12 +120,10 @@ export const registerCollectionRoutes = (
 
       const { id } = req.params;
       if (isTrashCollectionId(id, req.user.id)) {
-        return res
-          .status(400)
-          .json({
-            error: "Validation error",
-            message: "Trash collection cannot be renamed",
-          });
+        return res.status(400).json({
+          error: "Validation error",
+          message: "Trash collection cannot be renamed",
+        });
       }
       const existing = await prisma.collection.findFirst({
         where: { id, userId: req.user.id },
@@ -116,12 +133,10 @@ export const registerCollectionRoutes = (
 
       const parsed = collectionNameSchema.safeParse(req.body.name);
       if (!parsed.success) {
-        return res
-          .status(400)
-          .json({
-            error: "Validation error",
-            message: "Collection name must be between 1 and 100 characters",
-          });
+        return res.status(400).json({
+          error: "Validation error",
+          message: "Collection name must be between 1 and 100 characters",
+        });
       }
 
       const sanitizedName = sanitizeText(parsed.data, 100);
@@ -147,12 +162,10 @@ export const registerCollectionRoutes = (
 
       const { id } = req.params;
       if (isTrashCollectionId(id, req.user.id)) {
-        return res
-          .status(400)
-          .json({
-            error: "Validation error",
-            message: "Trash collection cannot be deleted",
-          });
+        return res.status(400).json({
+          error: "Validation error",
+          message: "Trash collection cannot be deleted",
+        });
       }
       const collection = await prisma.collection.findFirst({
         where: { id, userId: req.user.id },

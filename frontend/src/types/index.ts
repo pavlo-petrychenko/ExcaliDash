@@ -20,6 +20,7 @@ export interface Collection {
   createdAt: number;
   sharedRole?: "view" | "edit" | null;
   isOwner?: boolean;
+  isShared?: boolean;
 }
 
 export type CollectionShareRole = "view" | "edit";
