@@ -9,7 +9,7 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-export { default as axios } from 'axios';
+export { default as axios } from "axios";
 export const isAxiosError = axios.isAxiosError;
 
 export { api as default };
@@ -27,12 +27,16 @@ export type UpdateInfo = {
   error?: string;
 };
 
-export const getUpdateInfo = async (channel: UpdateChannel): Promise<UpdateInfo> => {
-  const response = await api.get<UpdateInfo>("/system/update", { params: { channel } });
+export const getUpdateInfo = async (
+  channel: UpdateChannel,
+): Promise<UpdateInfo> => {
+  const response = await api.get<UpdateInfo>("/system/update", {
+    params: { channel },
+  });
   return response.data;
 };
 
-const USER_KEY = 'excalidash-user';
+const USER_KEY = "excalidash-user";
 const AUTH_ENABLED_CACHE_KEY = "excalidash-auth-enabled";
 const AUTH_STATUS_TTL_MS = 5000;
 
@@ -54,7 +58,7 @@ export const fetchCsrfToken = async (): Promise<void> => {
   try {
     const response = await axios.get<{ token: string; header: string }>(
       `${API_URL}/csrf-token`,
-      { withCredentials: true }
+      { withCredentials: true },
     );
     csrfToken = response.data.token;
     csrfHeaderName = response.data.header || "x-csrf-token";
@@ -106,14 +110,17 @@ export interface AuthUser {
 export const authStatus = async (): Promise<AuthStatusResponse> => {
   const response = await axios.get<AuthStatusResponse>(
     `${API_URL}/auth/status`,
-    { withCredentials: true }
+    { withCredentials: true },
   );
   return response.data;
 };
 
 export const startOidcSignIn = (returnTo?: string): void => {
   const fallbackPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  const requestedPath = typeof returnTo === "string" && returnTo.startsWith("/") ? returnTo : fallbackPath;
+  const requestedPath =
+    typeof returnTo === "string" && returnTo.startsWith("/")
+      ? returnTo
+      : fallbackPath;
   const safeReturnTo = requestedPath.startsWith("/") ? requestedPath : "/";
   window.location.href = `/api/auth/oidc/start?returnTo=${encodeURIComponent(safeReturnTo)}`;
 };
@@ -135,9 +142,12 @@ export const authLogout = async (): Promise<void> => {
 
 export const authLogin = async (
   email: string,
-  password: string
+  password: string,
 ): Promise<{ user: AuthUser }> => {
-  const response = await api.post<{ user: AuthUser }>('/auth/login', { email, password });
+  const response = await api.post<{ user: AuthUser }>("/auth/login", {
+    email,
+    password,
+  });
   return response.data;
 };
 
@@ -145,9 +155,14 @@ export const authRegister = async (
   email: string,
   password: string,
   name: string,
-  setupCode?: string
+  setupCode?: string,
 ): Promise<{ user: AuthUser }> => {
-  const payload: { email: string; password: string; name: string; setupCode?: string } = {
+  const payload: {
+    email: string;
+    password: string;
+    name: string;
+    setupCode?: string;
+  } = {
     email,
     password,
     name,
@@ -157,30 +172,34 @@ export const authRegister = async (
   }
   const response = await api.post<{ user: AuthUser }>(
     "/auth/register",
-    payload
+    payload,
   );
   return response.data;
 };
 
 export const authOnboardingChoice = async (
-  enableAuth: boolean
-): Promise<{ authEnabled: boolean; authOnboardingCompleted: boolean; bootstrapRequired: boolean }> => {
+  enableAuth: boolean,
+): Promise<{
+  authEnabled: boolean;
+  authOnboardingCompleted: boolean;
+  bootstrapRequired: boolean;
+}> => {
   const response = await api.post<{
     authEnabled: boolean;
     authOnboardingCompleted: boolean;
     bootstrapRequired: boolean;
-  }>('/auth/onboarding-choice', { enableAuth });
+  }>("/auth/onboarding-choice", { enableAuth });
   return response.data;
 };
 
 export const authPasswordResetConfirm = async (
   token: string,
-  password: string
+  password: string,
 ): Promise<void> => {
   await axios.post(
     `${API_URL}/auth/password-reset-confirm`,
     { token, password },
-    { withCredentials: true }
+    { withCredentials: true },
   );
 };
 
@@ -204,7 +223,10 @@ const cacheAuthEnabled = (enabled: boolean) => {
 
 const getAuthEnabledStatus = async (): Promise<boolean | null> => {
   const now = Date.now();
-  if (authEnabledProbeCache && now - authEnabledProbeCache.fetchedAt < AUTH_STATUS_TTL_MS) {
+  if (
+    authEnabledProbeCache &&
+    now - authEnabledProbeCache.fetchedAt < AUTH_STATUS_TTL_MS
+  ) {
     return authEnabledProbeCache.value;
   }
 
@@ -224,8 +246,7 @@ const getAuthEnabledStatus = async (): Promise<boolean | null> => {
 };
 
 const redirectToLogin = async () => {
-  const isShareFlow =
-    window.location.pathname.startsWith("/shared/");
+  const isShareFlow = window.location.pathname.startsWith("/shared/");
   if (isShareFlow) return;
 
   try {
@@ -240,8 +261,8 @@ const redirectToLogin = async () => {
 
   const authEnabled = await getAuthEnabledStatus();
   if (authEnabled === false) return;
-  if (window.location.pathname !== '/login') {
-    window.location.href = '/login';
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
   }
 };
 
@@ -262,14 +283,20 @@ const refreshAccessToken = async (): Promise<void> => {
 api.interceptors.request.use(
   async (config) => {
     const publicAuthEndpoints = [
-      '/auth/password-reset-request',
-      '/auth/password-reset-confirm',
+      "/auth/password-reset-request",
+      "/auth/password-reset-confirm",
     ];
 
-    const isPublicAuthEndpoint = config.url && publicAuthEndpoints.some(endpoint => config.url?.startsWith(endpoint));
+    const isPublicAuthEndpoint =
+      config.url &&
+      publicAuthEndpoints.some((endpoint) => config.url?.startsWith(endpoint));
 
     const method = config.method?.toUpperCase();
-    if (method && ["POST", "PUT", "DELETE", "PATCH"].includes(method) && !isPublicAuthEndpoint) {
+    if (
+      method &&
+      ["POST", "PUT", "DELETE", "PATCH"].includes(method) &&
+      !isPublicAuthEndpoint
+    ) {
       await ensureCsrfToken();
       if (csrfToken) {
         config.headers[csrfHeaderName] = csrfToken;
@@ -277,7 +304,7 @@ api.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 api.interceptors.response.use(
@@ -303,9 +330,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       const originalRequest = (error.config || {}) as RetriableRequestConfig;
       const url = String(originalRequest.url || "");
-      const isAuthRoute = url.includes('/auth/');
-      const isShareFlow =
-        window.location.pathname.startsWith("/shared/");
+      const isAuthRoute = url.includes("/auth/");
+      const isShareFlow = window.location.pathname.startsWith("/shared/");
       const authEnabled = !isAuthRoute ? await getAuthEnabledStatus() : true;
 
       // Share links can grant access to drawings without a logged-in user session.
@@ -363,7 +389,7 @@ api.interceptors.response.use(
       }
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 const coerceTimestamp = (value: string | number | Date): number => {
@@ -381,7 +407,7 @@ interface HasTimestamps {
 }
 
 const deserializeTimestamps = <T extends HasTimestamps>(
-  data: T
+  data: T,
 ): T & { createdAt: number; updatedAt: number } => ({
   ...data,
   createdAt: coerceTimestamp(data.createdAt),
@@ -389,8 +415,8 @@ const deserializeTimestamps = <T extends HasTimestamps>(
 });
 
 const deserializeDrawingSummary = (drawing: unknown): DrawingSummary => {
-  if (typeof drawing !== 'object' || drawing === null) {
-    throw new Error('Invalid drawing data');
+  if (typeof drawing !== "object" || drawing === null) {
+    throw new Error("Invalid drawing data");
   }
   const parsed = drawing as HasTimestamps & DrawingSummary;
   return deserializeTimestamps({
@@ -403,8 +429,8 @@ const deserializeDrawingSummary = (drawing: unknown): DrawingSummary => {
 };
 
 const deserializeDrawing = (drawing: unknown): Drawing => {
-  if (typeof drawing !== 'object' || drawing === null) {
-    throw new Error('Invalid drawing data');
+  if (typeof drawing !== "object" || drawing === null) {
+    throw new Error("Invalid drawing data");
   }
   const parsed = drawing as HasTimestamps & Drawing;
   return deserializeTimestamps({
@@ -434,7 +460,7 @@ export function getDrawings(
     offset?: number;
     sortField?: DrawingSortField;
     sortDirection?: SortDirection;
-  }
+  },
 ): Promise<PaginatedDrawings<DrawingSummary>>;
 
 export function getDrawings(
@@ -446,7 +472,7 @@ export function getDrawings(
     offset?: number;
     sortField?: DrawingSortField;
     sortDirection?: SortDirection;
-  }
+  },
 ): Promise<PaginatedDrawings<Drawing>>;
 
 export async function getDrawings(
@@ -458,7 +484,7 @@ export async function getDrawings(
     offset?: number;
     sortField?: DrawingSortField;
     sortDirection?: SortDirection;
-  }
+  },
 ) {
   const params: Record<string, string | number> = {};
   if (search) params.search = search;
@@ -471,16 +497,21 @@ export async function getDrawings(
 
   if (options?.includeData) {
     params.includeData = "true";
-    const response = await api.get<PaginatedDrawings<Drawing>>("/drawings", { params });
+    const response = await api.get<PaginatedDrawings<Drawing>>("/drawings", {
+      params,
+    });
     return {
       ...response.data,
-      drawings: response.data.drawings.map(deserializeDrawing)
+      drawings: response.data.drawings.map(deserializeDrawing),
     };
   }
-  const response = await api.get<PaginatedDrawings<DrawingSummary>>("/drawings", { params });
+  const response = await api.get<PaginatedDrawings<DrawingSummary>>(
+    "/drawings",
+    { params },
+  );
   return {
     ...response.data,
-    drawings: response.data.drawings.map(deserializeDrawingSummary)
+    drawings: response.data.drawings.map(deserializeDrawingSummary),
   };
 }
 
@@ -491,7 +522,7 @@ export async function getSharedDrawings(
     offset?: number;
     sortField?: DrawingSortField;
     sortDirection?: SortDirection;
-  }
+  },
 ): Promise<PaginatedDrawings<DrawingSummary>> {
   const params: Record<string, string | number> = {};
   if (search) params.search = search;
@@ -499,7 +530,10 @@ export async function getSharedDrawings(
   if (options?.offset !== undefined) params.offset = options.offset;
   if (options?.sortField) params.sortField = options.sortField;
   if (options?.sortDirection) params.sortDirection = options.sortDirection;
-  const response = await api.get<PaginatedDrawings<DrawingSummary>>("/drawings/shared", { params });
+  const response = await api.get<PaginatedDrawings<DrawingSummary>>(
+    "/drawings/shared",
+    { params },
+  );
   return {
     ...response.data,
     drawings: response.data.drawings.map(deserializeDrawingSummary),
@@ -513,10 +547,16 @@ export const getDrawing = async (id: string) => {
 
 export type ShareResolvedUser = { id: string; name: string; email: string };
 
-export const resolveShareUsers = async (drawingId: string, q: string): Promise<ShareResolvedUser[]> => {
-  const response = await api.get<{ users: ShareResolvedUser[] }>(`/drawings/${drawingId}/share-resolve`, {
-    params: { q },
-  });
+export const resolveShareUsers = async (
+  drawingId: string,
+  q: string,
+): Promise<ShareResolvedUser[]> => {
+  const response = await api.get<{ users: ShareResolvedUser[] }>(
+    `/drawings/${drawingId}/share-resolve`,
+    {
+      params: { q },
+    },
+  );
   return response.data.users;
 };
 
@@ -539,48 +579,68 @@ export type DrawingLinkShareRow = {
   lastUsedAt: string | null;
 };
 
-export const getDrawingSharing = async (drawingId: string): Promise<{
+export const getDrawingSharing = async (
+  drawingId: string,
+): Promise<{
   permissions: DrawingPermissionRow[];
   linkShares: DrawingLinkShareRow[];
 }> => {
-  const response = await api.get<{ permissions: DrawingPermissionRow[]; linkShares: DrawingLinkShareRow[] }>(
-    `/drawings/${drawingId}/sharing`
-  );
+  const response = await api.get<{
+    permissions: DrawingPermissionRow[];
+    linkShares: DrawingLinkShareRow[];
+  }>(`/drawings/${drawingId}/sharing`);
   return response.data;
 };
 
 export const upsertDrawingPermission = async (
   drawingId: string,
-  params: { granteeUserId: string; permission: "view" | "edit" }
+  params: { granteeUserId: string; permission: "view" | "edit" },
 ): Promise<{ permission: DrawingPermissionRow }> => {
-  const response = await api.post<{ permission: DrawingPermissionRow }>(`/drawings/${drawingId}/permissions`, params);
+  const response = await api.post<{ permission: DrawingPermissionRow }>(
+    `/drawings/${drawingId}/permissions`,
+    params,
+  );
   return response.data;
 };
 
-export const revokeDrawingPermission = async (drawingId: string, permissionId: string): Promise<{ success: true }> => {
-  const response = await api.delete<{ success: true }>(`/drawings/${drawingId}/permissions/${permissionId}`);
+export const revokeDrawingPermission = async (
+  drawingId: string,
+  permissionId: string,
+): Promise<{ success: true }> => {
+  const response = await api.delete<{ success: true }>(
+    `/drawings/${drawingId}/permissions/${permissionId}`,
+  );
   return response.data;
 };
 
 export const createLinkShare = async (
   drawingId: string,
-  params: { permission: "view" | "edit"; expiresAt?: string; passphrase?: string }
+  params: {
+    permission: "view" | "edit";
+    expiresAt?: string;
+    passphrase?: string;
+  },
 ): Promise<{ share: DrawingLinkShareRow }> => {
   const response = await api.post<{ share: DrawingLinkShareRow }>(
     `/drawings/${drawingId}/link-shares`,
-    params
+    params,
   );
   return response.data;
 };
 
-export const revokeLinkShare = async (drawingId: string, shareId: string): Promise<{ success: true }> => {
-  const response = await api.delete<{ success: true }>(`/drawings/${drawingId}/link-shares/${shareId}`);
+export const revokeLinkShare = async (
+  drawingId: string,
+  shareId: string,
+): Promise<{ success: true }> => {
+  const response = await api.delete<{ success: true }>(
+    `/drawings/${drawingId}/link-shares/${shareId}`,
+  );
   return response.data;
 };
 
 export const createDrawing = async (
   name?: string,
-  collectionId?: string | null
+  collectionId?: string | null,
 ) => {
   const response = await api.post<{ id: string }>("/drawings", {
     name: name || "Untitled Drawing",
@@ -669,7 +729,6 @@ export const deleteCollection = async (id: string) => {
   return response.data;
 };
 
-
 type LibraryItem = Record<string, unknown>;
 
 export const getLibrary = async (): Promise<LibraryItem[]> => {
@@ -677,7 +736,75 @@ export const getLibrary = async (): Promise<LibraryItem[]> => {
   return response.data.items;
 };
 
-export const updateLibrary = async (items: LibraryItem[]): Promise<LibraryItem[]> => {
-  const response = await api.put<{ items: LibraryItem[] }>("/library", { items });
+export const updateLibrary = async (
+  items: LibraryItem[],
+): Promise<LibraryItem[]> => {
+  const response = await api.put<{ items: LibraryItem[] }>("/library", {
+    items,
+  });
   return response.data.items;
+};
+
+// ─── Collection Sharing API ───────────────────────────────────────────────────
+
+import type {
+  CollectionShareRow,
+  CollectionShareRole,
+  CollectionShareUser,
+} from "../types";
+
+export type { CollectionShareRow, CollectionShareRole, CollectionShareUser };
+
+export const getCollectionShares = async (
+  collectionId: string,
+): Promise<{ shares: CollectionShareRow[] }> => {
+  const response = await api.get<{ shares: CollectionShareRow[] }>(
+    `/collections/${collectionId}/shares`,
+  );
+  return response.data;
+};
+
+export const resolveCollectionShareUsers = async (
+  collectionId: string,
+  q: string,
+): Promise<CollectionShareUser[]> => {
+  const response = await api.get<{ users: CollectionShareUser[] }>(
+    `/collections/${collectionId}/share-resolve`,
+    { params: { q } },
+  );
+  return response.data.users;
+};
+
+export const addCollectionShare = async (
+  collectionId: string,
+  identifier: string,
+  role: CollectionShareRole,
+): Promise<{ share: CollectionShareRow }> => {
+  const response = await api.post<{ share: CollectionShareRow }>(
+    `/collections/${collectionId}/shares`,
+    { identifier, role },
+  );
+  return response.data;
+};
+
+export const updateCollectionShare = async (
+  collectionId: string,
+  userId: string,
+  role: CollectionShareRole,
+): Promise<{ success: true }> => {
+  const response = await api.patch<{ success: true }>(
+    `/collections/${collectionId}/shares/${userId}`,
+    { role },
+  );
+  return response.data;
+};
+
+export const removeCollectionShare = async (
+  collectionId: string,
+  userId: string,
+): Promise<{ success: true }> => {
+  const response = await api.delete<{ success: true }>(
+    `/collections/${collectionId}/shares/${userId}`,
+  );
+  return response.data;
 };
