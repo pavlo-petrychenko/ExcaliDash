@@ -19,6 +19,7 @@ import {
   FileText,
   Calendar,
   Clock,
+  AlertTriangle,
 } from "lucide-react";
 import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import * as api from "../api";
@@ -76,6 +77,9 @@ export const Dashboard: React.FC = () => {
     isOpen: boolean;
     message: string;
   }>({ isOpen: false, message: "" });
+  const [viewerActionError, setViewerActionError] = useState<string | null>(
+    null,
+  );
 
   const [isDragSelecting, setIsDragSelecting] = useState(false);
   const [dragStart, setDragStart] = useState<Point | null>(null);
@@ -312,7 +316,11 @@ export const Dashboard: React.FC = () => {
   );
   const handleCreateDrawing = async () => {
     if (isTrashView || isSharedView) return;
-    if (isSharedCollection && currentCollection?.sharedRole !== "edit") return;
+    if (isSharedCollection && currentCollection?.sharedRole !== "edit") {
+      setViewerActionError("Viewers can't create new drawings");
+      setTimeout(() => setViewerActionError(null), 3000);
+      return;
+    }
     try {
       const targetCollectionId =
         selectedCollectionId === undefined ? null : selectedCollectionId;
@@ -328,7 +336,11 @@ export const Dashboard: React.FC = () => {
 
   const handleImportDrawings = async (files: FileList | null) => {
     if (!files || isTrashView || isSharedView) return;
-    if (isSharedCollection && currentCollection?.sharedRole !== "edit") return;
+    if (isSharedCollection && currentCollection?.sharedRole !== "edit") {
+      setViewerActionError("Viewers can't import drawings");
+      setTimeout(() => setViewerActionError(null), 3000);
+      return;
+    }
 
     const fileArray = Array.from(files);
     const targetCollectionId =
@@ -795,6 +807,20 @@ export const Dashboard: React.FC = () => {
       >
         {viewTitle}
       </h1>
+      {viewerActionError && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-center gap-3 px-5 py-3 bg-amber-50 dark:bg-amber-900/30 border-2 border-amber-500 rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.1)]">
+            <AlertTriangle
+              size={18}
+              className="text-amber-600 dark:text-amber-400 shrink-0"
+              strokeWidth={3}
+            />
+            <span className="text-sm font-black text-amber-900 dark:text-amber-200">
+              {viewerActionError}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="mb-8 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
         <div className="flex flex-1 w-full lg:w-auto gap-3 items-center flex-wrap">
@@ -1012,8 +1038,18 @@ export const Dashboard: React.FC = () => {
           />
 
           <button
-            onClick={() => document.getElementById("dashboard-import")?.click()}
-            disabled={isTrashView || isSharedView || isSharedCollection}
+            onClick={() => {
+              if (
+                isSharedCollection &&
+                currentCollection?.sharedRole !== "edit"
+              ) {
+                setViewerActionError("Viewers can't import drawings");
+                setTimeout(() => setViewerActionError(null), 3000);
+                return;
+              }
+              document.getElementById("dashboard-import")?.click();
+            }}
+            disabled={isTrashView || isSharedView}
             className={clsx(
               "h-[42px] w-full sm:w-auto flex items-center justify-center gap-2 px-6 rounded-xl border-2 border-black dark:border-neutral-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] transition-all font-bold text-sm whitespace-nowrap",
               isTrashView || isSharedView
@@ -1027,11 +1063,7 @@ export const Dashboard: React.FC = () => {
 
           <button
             onClick={handleCreateDrawing}
-            disabled={
-              isTrashView ||
-              isSharedView ||
-              (isSharedCollection && currentCollection?.sharedRole !== "edit")
-            }
+            disabled={isTrashView || isSharedView}
             className={clsx(
               "h-[42px] w-full sm:w-auto flex items-center justify-center gap-2 px-6 rounded-xl border-2 border-black dark:border-neutral-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] transition-all font-bold text-sm whitespace-nowrap",
               isTrashView || isSharedView
