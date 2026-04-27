@@ -20,7 +20,7 @@ import {
 
 export const registerDrawingRoutes = (
   app: express.Express,
-  deps: DashboardRouteDeps,,
+  deps: DashboardRouteDeps,
 ) => {
   const {
     prisma,
@@ -629,10 +629,10 @@ export const registerDrawingRoutes = (
         }
       }
 
-        const updateWhere: Prisma.DrawingWhereInput = { id };
-        if (isSceneUpdate && payload.version !== undefined) {
-          updateWhere.version = payload.version;
-        }
+      const updateWhere: Prisma.DrawingWhereInput = { id };
+      if (isSceneUpdate && payload.version !== undefined) {
+        updateWhere.version = payload.version;
+      }
 
       const versionConflictError = new Error("VERSION_CONFLICT");
       let updatedDrawing: typeof existingDrawing | null = null;
@@ -661,12 +661,12 @@ export const registerDrawingRoutes = (
             return tx.drawing.findFirst({ where: { id } });
           });
         } else {
-            const updateResult = await prisma.drawing.updateMany({
-              where: updateWhere,
-              data,
-            });
-            if (updateResult.count === 0) {
-              return res.status(404).json({ error: "Drawing not found" });
+          const updateResult = await prisma.drawing.updateMany({
+            where: updateWhere,
+            data,
+          });
+          if (updateResult.count === 0) {
+            return res.status(404).json({ error: "Drawing not found" });
           }
           updatedDrawing = await prisma.drawing.findFirst({
             where: { id },
@@ -678,26 +678,26 @@ export const registerDrawingRoutes = (
           (error instanceof Error &&
             error.message === versionConflictError.message)
         ) {
-            const latestDrawing = await prisma.drawing.findFirst({
-              where: { id },
-              select: { version: true },
-            });
+          const latestDrawing = await prisma.drawing.findFirst({
+            where: { id },
+            select: { version: true },
+          });
           if (isSceneUpdate && payload.version !== undefined) {
-              return res.status(409).json({
-                error: "Conflict",
-                code: "VERSION_CONFLICT",
-                message:
+            return res.status(409).json({
+              error: "Conflict",
+              code: "VERSION_CONFLICT",
+              message:
                 "Drawing has changed since this editor state was loaded.",
-                currentVersion: latestDrawing?.version ?? null,
-              });
-            }
+              currentVersion: latestDrawing?.version ?? null,
+            });
           }
-            throw error;
-          }
-        if (!updatedDrawing) {
-          return res.status(404).json({ error: "Drawing not found" });
         }
-        invalidateDrawingsCache();
+        throw error;
+      }
+      if (!updatedDrawing) {
+        return res.status(404).json({ error: "Drawing not found" });
+      }
+      invalidateDrawingsCache();
 
       return res.json({
         ...updatedDrawing,
