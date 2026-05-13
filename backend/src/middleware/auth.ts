@@ -13,6 +13,7 @@ import {
   apiKeyHashMatches,
   extractApiKeyId,
   isApiKeyToken,
+  parseApiKeyScopes,
 } from "../auth/apiKeys";
 
 declare global {
@@ -123,6 +124,36 @@ const isAllowedWhileMustResetPassword = (req: Request): boolean => {
   return false;
 };
 
+const getRequiredApiKeyScope = (req: Request): string | null => {
+  const path = normalizeRequestPath(req);
+  const resource = path === "/drawings" || path.startsWith("/drawings/")
+    ? "drawings"
+    : path === "/collections" || path.startsWith("/collections/")
+      ? "collections"
+      : null;
+  if (!resource) return null;
+
+  const access = req.method === "GET" || req.method === "HEAD" ? "read" : "write";
+  return `${resource}:${access}`;
+};
+
+const authorizeApiKeyRequest = (
+  req: Request,
+  res: Response,
+  scopes: string[],
+): boolean => {
+  const requiredScope = getRequiredApiKeyScope(req);
+  if (requiredScope && scopes.includes(requiredScope)) {
+    return true;
+  }
+
+  res.status(403).json({
+    error: "Forbidden",
+    message: "API key is not authorized for this route",
+  });
+  return false;
+};
+
 export type AuthMiddlewareDeps = {
   prisma: PrismaClient;
   authModeService: AuthModeService;
@@ -169,12 +200,16 @@ export const createAuthMiddleware = ({
     if (!apiKeyHashMatches(token, apiKey.tokenHash)) return null;
     if (!apiKey.user.isActive) return null;
 
-    await prisma.apiKey.update({
-      where: { id: apiKey.id },
-      data: { lastUsedAt: new Date() },
-    });
+    try {
+      await prisma.apiKey.update({
+        where: { id: apiKey.id },
+        data: { lastUsedAt: new Date() },
+      });
+    } catch (error) {
+      console.warn("Failed to update API key lastUsedAt:", error);
+    }
 
-    return apiKey.user;
+    return { user: apiKey.user, scopes: parseApiKeyScopes(apiKey.scopes) };
   };
 
   const shouldReconcileOidcRole = async (
@@ -283,12 +318,17 @@ export const createAuthMiddleware = ({
 
     if (extracted.source === "bearer" && isApiKeyToken(extracted.token)) {
       try {
-        const user = await authenticateApiKey(extracted.token);
-        if (!user) {
+        const result = await authenticateApiKey(extracted.token);
+        if (!result) {
           res.status(401).json({
             error: "Unauthorized",
             message: "Invalid or revoked API key",
           });
+          return;
+        }
+        const { user, scopes } = result;
+
+        if (!authorizeApiKeyRequest(req, res, scopes)) {
           return;
         }
 
@@ -419,8 +459,12 @@ export const createAuthMiddleware = ({
 
     if (extracted.source === "bearer" && isApiKeyToken(extracted.token)) {
       try {
-        const user = await authenticateApiKey(extracted.token);
-        if (user) {
+        const result = await authenticateApiKey(extracted.token);
+        if (result) {
+          if (!authorizeApiKeyRequest(req, res, result.scopes)) {
+            return;
+          }
+          const { user } = result;
           req.user = {
             id: user.id,
             username: user.username,

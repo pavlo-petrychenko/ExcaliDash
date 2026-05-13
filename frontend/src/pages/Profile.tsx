@@ -79,6 +79,12 @@ export const Profile: React.FC = () => {
 
     useEffect(() => {
         if (authEnabled === false) return;
+        if (mustResetPassword) {
+            setApiKeys([]);
+            setApiKeysLoading(false);
+            setApiKeyError('');
+            return;
+        }
 
         const fetchApiKeys = async () => {
             setApiKeysLoading(true);
@@ -93,7 +99,7 @@ export const Profile: React.FC = () => {
         };
 
         void fetchApiKeys();
-    }, [authEnabled]);
+    }, [authEnabled, mustResetPassword]);
 
     useEffect(() => {
         if (mustResetPassword) {
@@ -258,6 +264,8 @@ export const Profile: React.FC = () => {
     };
 
     const handleCreateApiKey = async () => {
+        if (mustResetPassword || apiKeysLoading) return;
+
         const trimmedName = apiKeyName.trim();
         if (!trimmedName) {
             setApiKeyError('API key name is required');
@@ -308,6 +316,12 @@ export const Profile: React.FC = () => {
         } catch {
             setApiKeyError('Failed to copy token. Select and copy it manually.');
         }
+    };
+
+    const handleHideGeneratedToken = () => {
+        setGeneratedToken('');
+        setGeneratedTokenName('');
+        setCopiedToken(false);
     };
 
     const handleRevokeApiKey = async (id: string, name: string) => {
@@ -492,6 +506,16 @@ export const Profile: React.FC = () => {
                         </div>
                     </div>
 
+                    {mustResetPassword ? (
+                        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800 rounded-xl">
+                            <p className="text-amber-900 dark:text-amber-200 font-bold">
+                                API key management is unavailable until you reset your password.
+                            </p>
+                            <p className="text-sm text-amber-800 dark:text-amber-200/80 font-medium mt-1">
+                                Change your password below, then return here to create and manage API keys.
+                            </p>
+                        </div>
+                    ) : (<>
                     {apiKeyError && (
                         <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-xl">
                             <p className="text-red-800 dark:text-red-200 font-medium">{apiKeyError}</p>
@@ -522,6 +546,12 @@ export const Profile: React.FC = () => {
                                     <Copy size={18} />
                                     {copiedToken ? 'Copied' : 'Copy Token'}
                                 </button>
+                                <button
+                                    onClick={handleHideGeneratedToken}
+                                    className="px-6 py-3 bg-white dark:bg-neutral-800 text-slate-700 dark:text-neutral-300 font-bold rounded-xl border-2 border-black dark:border-neutral-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.2)] hover:-translate-y-0.5 transition-all duration-200"
+                                >
+                                    Done
+                                </button>
                             </div>
                         </div>
                     )}
@@ -543,7 +573,7 @@ export const Profile: React.FC = () => {
                         </div>
                         <button
                             onClick={() => void handleCreateApiKey()}
-                            disabled={apiKeyActionLoading || !apiKeyName.trim()}
+                            disabled={apiKeysLoading || apiKeyActionLoading || !apiKeyName.trim()}
                             className="sm:self-end px-6 py-3 bg-emerald-600 dark:bg-emerald-500 text-white font-bold rounded-xl border-2 border-black dark:border-neutral-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.2)] hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:disabled:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)]"
                         >
                             {apiKeyActionLoading ? 'Creating...' : 'Create API Key'}
@@ -606,6 +636,7 @@ export const Profile: React.FC = () => {
                             })}
                         </div>
                     )}
+                    </>)}
                 </div>
 
                 <div className="bg-white dark:bg-neutral-900 border-2 border-black dark:border-neutral-700 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.2)] p-6">

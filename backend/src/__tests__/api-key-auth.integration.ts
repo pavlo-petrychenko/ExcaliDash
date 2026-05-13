@@ -11,6 +11,7 @@ describe("API key authentication", () => {
   let userId: string;
   let apiKeyId: string;
   let apiKeyToken: string;
+  let adminApiKeyToken: string;
 
   beforeAll(async () => {
     setupTestDb();
@@ -50,6 +51,29 @@ describe("API key authentication", () => {
       select: { id: true },
     });
     apiKeyId = apiKey.id;
+
+    const adminUser = await prisma.user.create({
+      data: {
+        email: "api-key-admin@test.local",
+        passwordHash,
+        name: "API Key Admin",
+        role: "ADMIN",
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    const adminGenerated = generateApiKey();
+    adminApiKeyToken = adminGenerated.token;
+    await prisma.apiKey.create({
+      data: {
+        userId: adminUser.id,
+        name: "Admin automation",
+        keyId: adminGenerated.keyId,
+        tokenHash: adminGenerated.tokenHash,
+        prefix: adminGenerated.prefix,
+        scopes: serializeApiKeyScopes(),
+      },
+    });
   });
 
   afterAll(async () => {
@@ -68,6 +92,35 @@ describe("API key authentication", () => {
 
     const stored = await prisma.apiKey.findUnique({ where: { id: apiKeyId } });
     expect(stored?.lastUsedAt).toBeInstanceOf(Date);
+  });
+
+  it("accepts API key bearer auth for allowed read routes", async () => {
+    const collectionsResponse = await request(app)
+      .get("/collections")
+      .set("Authorization", `Bearer ${apiKeyToken}`);
+    const drawingsResponse = await request(app)
+      .get("/drawings")
+      .set("Authorization", `Bearer ${apiKeyToken}`);
+
+    expect(collectionsResponse.status).toBe(200);
+    expect(drawingsResponse.status).toBe(200);
+  });
+
+  it("rejects API key management with API key auth", async () => {
+    const response = await request(app)
+      .get("/auth/api-keys")
+      .set("Authorization", `Bearer ${apiKeyToken}`);
+
+    expect(response.status).toBe(403);
+  });
+
+  it("rejects admin actions with admin-owned API key auth", async () => {
+    const response = await request(app)
+      .get("/auth/users")
+      .set("Authorization", `Bearer ${adminApiKeyToken}`)
+      .send();
+
+    expect(response.status).toBe(403);
   });
 
   it("stores only hashed API keys and metadata", async () => {

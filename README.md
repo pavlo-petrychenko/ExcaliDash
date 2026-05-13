@@ -333,6 +333,7 @@ Personal API keys for automation clients:
 - Create and manage keys from the authenticated account API: `GET /auth/api-keys`, `POST /auth/api-keys`, and `DELETE /auth/api-keys/:id`.
 - `POST /auth/api-keys` accepts `{ "name": "Obsidian" }` and returns the plaintext token once. Store it immediately; ExcaliDash stores only a hash and metadata.
 - Automation clients such as the Obsidian plugin should call normal drawing and collection APIs with `Authorization: Bearer <key>`, for example `Authorization: Bearer exd_...`.
+- API keys are scoped automation credentials for `/drawings` and `/collections` only. They cannot manage account settings, create/revoke API keys, call admin endpoints, or use import/export APIs.
 - API-key Bearer requests without browser `Origin`/`Referer` headers do not require CSRF tokens. Cookie-authenticated browser requests keep the existing CSRF behavior.
 
 </details>

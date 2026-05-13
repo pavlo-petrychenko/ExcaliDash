@@ -34,7 +34,7 @@ export const isApiKeyToken = (token: string): boolean => token.startsWith(API_KE
 export const extractApiKeyId = (token: string): string | null => {
   if (!isApiKeyToken(token)) return null;
   const withoutPrefix = token.slice(API_KEY_PREFIX.length);
-  const separatorIndex = withoutPrefix.indexOf("_");
+  const separatorIndex = withoutPrefix[16] === "_" ? 16 : withoutPrefix.indexOf("_");
   if (separatorIndex <= 0) return null;
   const keyId = withoutPrefix.slice(0, separatorIndex);
   return /^[A-Za-z0-9_-]{8,64}$/.test(keyId) ? keyId : null;
