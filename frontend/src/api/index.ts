@@ -103,6 +103,22 @@ export interface AuthUser {
   mustResetPassword?: boolean;
 }
 
+export interface ApiKeyMetadata {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateApiKeyResponse {
+  apiKey: ApiKeyMetadata;
+  token: string;
+}
+
 export const authStatus = async (): Promise<AuthStatusResponse> => {
   const response = await axios.get<AuthStatusResponse>(
     `${API_URL}/auth/status`,
@@ -160,6 +176,20 @@ export const authRegister = async (
     payload
   );
   return response.data;
+};
+
+export const listApiKeys = async (): Promise<ApiKeyMetadata[]> => {
+  const response = await api.get<{ apiKeys: ApiKeyMetadata[] }>("/auth/api-keys");
+  return response.data.apiKeys;
+};
+
+export const createApiKey = async (name: string): Promise<CreateApiKeyResponse> => {
+  const response = await api.post<CreateApiKeyResponse>("/auth/api-keys", { name });
+  return response.data;
+};
+
+export const revokeApiKey = async (id: string): Promise<void> => {
+  await api.delete(`/auth/api-keys/${id}`);
 };
 
 export const authOnboardingChoice = async (
