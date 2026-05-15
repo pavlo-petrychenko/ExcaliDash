@@ -289,9 +289,6 @@ export const Profile: React.FC = () => {
         setApiKeyActionLoading(true);
         setApiKeyError('');
         setSuccess('');
-        setGeneratedToken('');
-        setGeneratedTokenName('');
-        setCopiedToken(false);
 
         try {
             const response = await api.createApiKey(trimmedName, selectedApiKeyScopes);
@@ -300,6 +297,7 @@ export const Profile: React.FC = () => {
             setSelectedApiKeyScopes([...api.API_KEY_SCOPES]);
             setGeneratedToken(response.token);
             setGeneratedTokenName(response.apiKey.name);
+            setCopiedToken(false);
             setSuccess('API key created. Copy the token now; it will not be shown again.');
         } catch (err: unknown) {
             setApiKeyError(getApiErrorMessage(err, 'Failed to create API key'));

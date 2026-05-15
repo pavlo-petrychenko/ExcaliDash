@@ -205,4 +205,41 @@ describe("Profile API keys", () => {
     expect(screen.getByRole("button", { name: /create api key/i })).toBeDisabled();
     expect(api.createApiKey).not.toHaveBeenCalled();
   });
+
+  it("keeps a one-time token visible if creating another API key fails", async () => {
+    vi.mocked(api.createApiKey)
+      .mockResolvedValueOnce({
+        apiKey: {
+          ...existingApiKey,
+          id: "key-2",
+          name: "First Token",
+          prefix: "exd_key_first",
+        },
+        token: "exd_key_first.secret-token-value",
+      })
+      .mockRejectedValueOnce(new Error("Network error"));
+
+    render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Existing Key");
+
+    fireEvent.change(screen.getByLabelText(/api key name/i), {
+      target: { value: "First Token" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create api key/i }));
+
+    expect(await screen.findByDisplayValue("exd_key_first.secret-token-value")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/api key name/i), {
+      target: { value: "Second Token" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create api key/i }));
+
+    expect(await screen.findByText(/failed to create api key/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue("exd_key_first.secret-token-value")).toBeInTheDocument();
+  });
 });
