@@ -7,7 +7,7 @@ const ROOT = path.resolve(__dirname, "..");
 const SOURCE_ROOTS = ["backend/src", "backend/scripts", "frontend/src", "e2e/tests", "scripts", "docs", "make"];
 const EXACT_FILES = ["AGENTS.md", "Makefile", "OFFLINE_RESOLUTION_LOG.md", "README.md", "RELEASE.md"];
 const EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".css", ".cjs", ".mjs", ".md", ".mk"]);
-const SKIP_DIRS = new Set(["node_modules", "dist", "coverage", ".git"]);
+const SKIP_DIRS = new Set(["node_modules", "dist", "coverage", ".git", "generated"]);
 const countLines = (filePath) => {
   const content = fs.readFileSync(filePath, "utf8");
   if (content.length === 0) return 0;
