@@ -11,6 +11,7 @@ import {
   getCsrfClientCookieValue,
   getCsrfValidationClientIds,
 } from "../security/csrfClient";
+import { isNonBrowserApiKeyBearerRequest } from "../auth/apiKeys";
 
 const CSRF_CLIENT_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 const CSRF_RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
@@ -150,6 +151,9 @@ export const registerCsrfProtection = ({
   ) => {
     const safeMethods = ["GET", "HEAD", "OPTIONS"];
     if (safeMethods.includes(req.method)) {
+      return next();
+    }
+    if (isNonBrowserApiKeyBearerRequest(req)) {
       return next();
     }
 
