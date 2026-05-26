@@ -1,6 +1,6 @@
 .PHONY: help install dev build test test-frontend test-backend test-e2e test-e2e-docker \
         lint lint-frontend lint-backend clean docker-build docker-run docker-down docker-logs \
-        lab-build lab-up lab-down lab-reset lab-status lab-logs lab-smoke \
+        lab-build lab-up lab-down lab-reset lab-status lab-logs lab-smoke lab-open \
         release pre-release version-bump changelog changelog-open changelog-keep db-migrate db-reset
 
 DOCKER_USERNAME := zimengxiong
@@ -236,6 +236,17 @@ lab-logs: ## Follow lab container logs
 lab-smoke: ## Verify all lab frontends, backend health proxies, and SeaweedFS bucket setup
 	chmod +x scripts/lab-smoke.sh
 	./scripts/lab-smoke.sh
+
+lab-open: ## Open all lab URLs in the default browser
+	@URLS="http://localhost:1101 http://localhost:1102 http://localhost:1103 http://localhost:1104 http://localhost:1105 http://localhost:18080/admin http://localhost:18888 http://localhost:18333"; \
+	if command -v open >/dev/null 2>&1; then \
+		for URL in $$URLS; do open "$$URL"; done; \
+	elif command -v xdg-open >/dev/null 2>&1; then \
+		for URL in $$URLS; do xdg-open "$$URL" >/dev/null 2>&1 & done; \
+	else \
+		echo "No browser opener found. Open these URLs manually:"; \
+		for URL in $$URLS; do echo "  $$URL"; done; \
+	fi
 
 version: ## Show current version
 	@echo "Current version: $(VERSION)"
