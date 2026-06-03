@@ -1,36 +1,23 @@
-# ExcaliDash v0.5.0-dev
+# ExcaliDash v0.5.0
 
 Release date: 2026-06-03
 
-This is a prerelease build intended for validation before the next stable release.
+This release focuses on safer sharing, stronger storage handling, cleaner account management, and smoother self-hosted operation.
 
 | Area | Key changes |
 |------|-------------|
-| **Sharing and collaboration** | Collection sharing, drawing link/person sharing, shared collection role handling, access-aware editor loading, and collaboration safety fixes. |
-| **Storage and files** | S3-backed image file records, private-bucket file redirects, storage trim/diff/orphan cleanup APIs, S3 delete accounting, and safer S3 key migration for nested prefixes. |
-| **Account and admin** | API keys, user preferences, profile/password cards, admin user management split, access-control settings, and login rate-limit controls. |
-| **Editor reliability** | Safer snapshot persistence, image status normalization, multi-image drop import, collaboration/file delta handling, and extracted editor modules under the source line-count gate. |
-| **Import/export and backups** | Improved import helpers, file processing coverage, SQLite backup scheduler, and compatibility tests. |
-| **Deployment and lab tooling** | Production/lab compose updates, deployment docs, reproducible environment lab, release scripts, and source line-count checks. |
+| **Sharing and collaboration** | Share drawings and collections with specific people, manage viewer/editor roles, and use safer public links. |
+| **Storage and files** | Improved S3 support for image files, private bucket redirects, cleanup tools, and safer handling for nested S3 prefixes. |
+| **Account and admin** | API keys, user preferences, profile and password management, admin user management, access controls, and login rate-limit settings. |
+| **Editor reliability** | More reliable saving, cleaner image handling, better multi-image imports, and safer collaboration updates. |
+| **Import/export and backups** | Improved drawing imports, backup handling, and scheduled SQLite backups. |
+| **Deployment** | Updated production Compose files and expanded deployment guidance for reverse proxies, OIDC, backups, offline use, and environment settings. |
 
-## Verification
+## Notes
 
-The prerelease branch has been verified locally with:
-
-- Frontend build
-- Backend build
-- Frontend unit tests
-- Backend unit/integration tests
-- Frontend and backend npm audit
-- `git diff --check`
-- Source line-count gate for handwritten TypeScript/TSX
-- SQLite smoke test for the S3 composite-key migration with default and nested key prefixes
-
-## Known prerelease notes
-
-- S3-enabled deployments should validate private file redirects, storage trim, duplicate/copy, and orphan cleanup against their real bucket before promoting this prerelease to stable.
-- Docker image publishing is manual through the release scripts in this repo. Confirm DockerHub login and a working Docker buildx builder before publishing images.
-- GitHub and DockerHub publishing should happen only from a clean, committed branch.
+- S3 deployments should verify private file access, storage cleanup, duplicate/copy behavior, and orphan cleanup against the real bucket after upgrading.
+- Keep regular backups of the backend database, secrets, uploads, and S3 bucket data.
+- If you run behind a reverse proxy, make sure TLS, forwarded headers, trusted proxy settings, and public URLs are configured before opening the app to users.
 
 ## Upgrading
 
@@ -44,23 +31,23 @@ The prerelease branch has been verified locally with:
 - If S3 is enabled, verify that existing object keys follow the canonical layout `{prefix}/{userId}/{drawingId}/{fileId}.{ext}`.
 - Run `docker compose -f docker-compose.prod.yml logs backend --tail=200` after rollout and verify startup/migration status.
 
-### Recommended prerelease upgrade
+### Recommended upgrade
 
 ```bash
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-### Pin images to this prerelease
+### Pin images to this release
 
-Edit `docker-compose.prod.yml` and pin the prerelease tags:
+Edit `docker-compose.prod.yml` and pin the release tags:
 
 ```yaml
 services:
   backend:
-    image: zimengxiong/excalidash-backend:v0.5.0-dev
+    image: zimengxiong/excalidash-backend:v0.5.0
   frontend:
-    image: zimengxiong/excalidash-frontend:v0.5.0-dev
+    image: zimengxiong/excalidash-frontend:v0.5.0
 ```
 
 Example:

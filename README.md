@@ -17,7 +17,7 @@ A self-hosted dashboard and organizer for [Excalidraw](https://github.com/excali
 - [Installation](#installation)
   - [Quickstart](#quickstart)
   - [Advanced deployment and operations](docs/DEPLOYMENT.md)
-- [Development](#development)
+- [Operations](#operations)
 - [Credits](#credits)
 
 ## Features
@@ -186,99 +186,14 @@ docker compose up -d
 
 Advanced deployment, reverse proxy, OIDC, offline, backup, and environment-variable documentation lives in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-# Development
-
-For contributor workflow, `make dev` starts the app in local single-user mode so you can reproduce editor bugs without going through login/onboarding. Use `make dev-auth` if you need to test local auth or OIDC flows from your `backend/.env`.
+# Operations
 
 <details>
-<summary>Clone the Repository</summary>
+<summary>Emergency admin recovery</summary>
 
-## Clone the Repository
+## Emergency admin recovery
 
-```bash
-# Clone the repository (recommended)
-git clone git@github.com:ZimengXiong/ExcaliDash.git
-
-# or, clone with HTTPS
-# git clone https://github.com/ZimengXiong/ExcaliDash.git
-```
-
-</details>
-
-<details>
-<summary>Frontend</summary>
-
-## Frontend
-
-```bash
-cd ExcaliDash/frontend
-npm install
-
-# Copy environment file and customize if needed
-cp .env.example .env
-
-npm run dev
-```
-
-</details>
-
-<details>
-<summary>Backend</summary>
-
-## Backend
-
-```bash
-cd ExcaliDash/backend
-npm install
-
-# Copy environment file and customize if needed
-cp .env.example .env
-
-# Generate Prisma client and setup database
-npx prisma generate
-npx prisma db push
-
-npm run dev
-```
-
-</details>
-
-<details>
-<summary>Simulate Auth Onboarding (Development)</summary>
-
-### Simulate Auth Onboarding (Development)
-
-To simulate first-run authentication choice flows in local development:
-
-```bash
-cd ExcaliDash/backend
-
-# Preview what would change (no data modifications)
-npm run dev:simulate-auth-onboarding:dry-run
-
-# Simulate "fresh install" onboarding state
-# (wipes drawings/collections/libraries and removes non-bootstrap users)
-npm run dev:simulate-auth-onboarding:fresh
-
-# Simulate "migration" onboarding state (ensures legacy data exists)
-npm run dev:simulate-auth-onboarding:migration
-```
-
-After running a simulation while the backend is already running, wait about 5 seconds
-(auth mode cache TTL) or restart the backend before refreshing the UI.
-
-</details>
-
-<details>
-<summary>Setup and Operational Scripts</summary>
-
-### Setup and Operational Scripts
-
-In `backend/package.json` there are helper scripts for maintenance:
-
-| Script          | Purpose                                    |
-| --------------- | ------------------------------------------ |
-| `admin:recover` | Emergency admin credential recovery/reset. |
+Use the admin recovery script if an admin account is locked out, inactive, or needs a forced password reset.
 
 Admin recovery example:
 
