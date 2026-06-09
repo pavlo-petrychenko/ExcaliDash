@@ -33,6 +33,11 @@ describe("calculateExpiresAt", () => {
   it("returns undefined for a past custom value", () => {
     expect(calculateExpiresAt("custom", "2000-01-02T03:04")).toBeUndefined();
   });
+
+  it("returns undefined for a custom value less than 1 minute in the future", () => {
+    const soon = new Date(Date.now() + 30_000);
+    expect(calculateExpiresAt("custom", toDatetimeLocalValue(soon.toISOString()))).toBeUndefined();
+  });
 });
 
 describe("deriveExpiryStateFromLink", () => {

@@ -801,6 +801,9 @@ export const registerDrawingRoutes = (
 
     const now = Date.now();
     const defaultTtlMs = resolveDefaultTtlMs(permission);
+    const maxTtlMs = resolveMaxTtlMs();
+    const effectiveDefaultTtlMs =
+      permission === "edit" ? Math.min(defaultTtlMs, maxTtlMs) : defaultTtlMs;
 
     // Three explicit states for expiresAt:
     //   - key present and null  -> never expire for view links; edit links use their default TTL
@@ -811,7 +814,7 @@ export const registerDrawingRoutes = (
 
     let expiresAt: Date | null;
     if (hasExpiresAtKey && rawExpiresAt === null) {
-      expiresAt = permission === "view" ? null : new Date(now + defaultTtlMs);
+      expiresAt = permission === "view" ? null : new Date(now + effectiveDefaultTtlMs);
     } else {
       const requestedDate =
         typeof rawExpiresAt === "string" && rawExpiresAt.trim().length > 0
@@ -831,7 +834,7 @@ export const registerDrawingRoutes = (
         }
         const ttlMs =
           permission === "edit"
-            ? Math.min(candidateTtlMs, resolveMaxTtlMs())
+            ? Math.min(candidateTtlMs, maxTtlMs)
             : candidateTtlMs;
         expiresAt = new Date(now + ttlMs);
       } else if (hasExpiresAtKey && rawExpiresAt !== undefined && rawExpiresAt !== null) {
@@ -840,7 +843,7 @@ export const registerDrawingRoutes = (
           message: "Invalid expiry",
         });
       } else {
-        expiresAt = new Date(now + defaultTtlMs);
+        expiresAt = new Date(now + effectiveDefaultTtlMs);
       }
     }
 

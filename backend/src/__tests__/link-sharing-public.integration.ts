@@ -361,6 +361,36 @@ describe("Link Sharing - Public By Drawing ID", () => {
       expect(stored).toBeLessThan(Date.now() + 8 * DAY_MS);
     });
 
+    it("caps edit default expiry when the configured default exceeds max TTL", async () => {
+      const originalDefault = process.env.LINK_SHARE_EDIT_DEFAULT_TTL_MS;
+      const originalMax = process.env.LINK_SHARE_MAX_TTL_MS;
+      process.env.LINK_SHARE_EDIT_DEFAULT_TTL_MS = String(30 * DAY_MS);
+      process.env.LINK_SHARE_MAX_TTL_MS = String(2 * DAY_MS);
+      try {
+        const drawing = await createDrawing();
+        const omitted = await createLinkShare(drawing.id, "edit");
+        const omittedStored = new Date(omitted.body.share.expiresAt as string).getTime();
+        expect(omittedStored).toBeGreaterThan(Date.now() + 47 * HOUR_MS);
+        expect(omittedStored).toBeLessThan(Date.now() + 49 * HOUR_MS);
+
+        const explicitNull = await createLinkShare(drawing.id, "edit", { expiresAt: null });
+        const nullStored = new Date(explicitNull.body.share.expiresAt as string).getTime();
+        expect(nullStored).toBeGreaterThan(Date.now() + 47 * HOUR_MS);
+        expect(nullStored).toBeLessThan(Date.now() + 49 * HOUR_MS);
+      } finally {
+        if (originalDefault === undefined) {
+          delete process.env.LINK_SHARE_EDIT_DEFAULT_TTL_MS;
+        } else {
+          process.env.LINK_SHARE_EDIT_DEFAULT_TTL_MS = originalDefault;
+        }
+        if (originalMax === undefined) {
+          delete process.env.LINK_SHARE_MAX_TTL_MS;
+        } else {
+          process.env.LINK_SHARE_MAX_TTL_MS = originalMax;
+        }
+      }
+    });
+
     it("honors an explicit far-future date without clamping to 90 days", async () => {
       const drawing = await createDrawing();
       const oneYearOut = new Date(Date.now() + 365 * DAY_MS);
