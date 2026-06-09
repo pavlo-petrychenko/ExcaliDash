@@ -61,6 +61,12 @@ export const registerDrawingRoutes = (
     return permission === "edit" ? 7 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
   };
 
+  const resolveMaxTtlMs = (): number => {
+    const parsed = Number(process.env.LINK_SHARE_MAX_TTL_MS);
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+    return 90 * 24 * 60 * 60 * 1000;
+  };
+
   const respondWithAuthErrorIfPresent = (
     req: express.Request,
     res: express.Response
@@ -797,16 +803,15 @@ export const registerDrawingRoutes = (
     const defaultTtlMs = resolveDefaultTtlMs(permission);
 
     // Three explicit states for expiresAt:
-    //   - key present and null  -> never expire (for both view and edit)
-    //   - key present and a valid ISO date -> expire at that instant (no max cap)
-    //   - key absent / invalid  -> apply the permission default TTL
+    //   - key present and null  -> never expire for view links; edit links use their default TTL
+    //   - key present and a valid future ISO date -> expire at that instant
+    //   - key absent -> apply the permission default TTL
     const hasExpiresAtKey = Object.prototype.hasOwnProperty.call(req.body ?? {}, "expiresAt");
     const rawExpiresAt = req.body?.expiresAt;
 
     let expiresAt: Date | null;
     if (hasExpiresAtKey && rawExpiresAt === null) {
-      // Explicit "never auto-disable".
-      expiresAt = null;
+      expiresAt = permission === "view" ? null : new Date(now + defaultTtlMs);
     } else {
       const requestedDate =
         typeof rawExpiresAt === "string" && rawExpiresAt.trim().length > 0
@@ -817,12 +822,24 @@ export const registerDrawingRoutes = (
       );
 
       if (hasValidRequestedExpiry && requestedDate) {
-        // Honor the user's explicit date; enforce only a minimum so the link is
-        // usable, but do NOT cap how far out it may be.
-        const ttlMs = Math.max(requestedDate.getTime() - now, 60_000);
+        const candidateTtlMs = requestedDate.getTime() - now;
+        if (candidateTtlMs < 60_000) {
+          return res.status(400).json({
+            error: "Validation error",
+            message: "Expiry must be at least 1 minute in the future",
+          });
+        }
+        const ttlMs =
+          permission === "edit"
+            ? Math.min(candidateTtlMs, resolveMaxTtlMs())
+            : candidateTtlMs;
         expiresAt = new Date(now + ttlMs);
+      } else if (hasExpiresAtKey && rawExpiresAt !== undefined && rawExpiresAt !== null) {
+        return res.status(400).json({
+          error: "Validation error",
+          message: "Invalid expiry",
+        });
       } else {
-        // No usable expiry provided -> permission default TTL.
         expiresAt = new Date(now + defaultTtlMs);
       }
     }

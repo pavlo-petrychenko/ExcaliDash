@@ -65,6 +65,23 @@ describe("Link Sharing - Public By Drawing ID", () => {
     return response;
   };
 
+  const postLinkShare = async (
+    drawingId: string,
+    permission: "view" | "edit",
+    body?: { expiresAt?: string | null }
+  ) => {
+    const payload: Record<string, unknown> = { permission };
+    if (body && Object.prototype.hasOwnProperty.call(body, "expiresAt")) {
+      payload.expiresAt = body.expiresAt;
+    }
+    return ownerAgent
+      .post(`/drawings/${drawingId}/link-shares`)
+      .set("User-Agent", userAgent)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .set(ownerCsrfHeaderName, ownerCsrfToken)
+      .send(payload);
+  };
+
   const createAnonymousAgentWithCsrf = async () => {
     const anonAgent = request.agent(app);
     const anonCsrfRes = await anonAgent
@@ -336,10 +353,12 @@ describe("Link Sharing - Public By Drawing ID", () => {
       expect(res.body.share.expiresAt).toBeNull();
     });
 
-    it("stores null expiry when expiresAt is explicitly null (edit = never)", async () => {
+    it("uses the default expiry when expiresAt is explicitly null for edit links", async () => {
       const drawing = await createDrawing();
       const res = await createLinkShare(drawing.id, "edit", { expiresAt: null });
-      expect(res.body.share.expiresAt).toBeNull();
+      const stored = new Date(res.body.share.expiresAt as string).getTime();
+      expect(stored).toBeGreaterThan(Date.now() + 6 * DAY_MS);
+      expect(stored).toBeLessThan(Date.now() + 8 * DAY_MS);
     });
 
     it("honors an explicit far-future date without clamping to 90 days", async () => {
@@ -353,6 +372,35 @@ describe("Link Sharing - Public By Drawing ID", () => {
       expect(stored).toBeGreaterThan(Date.now() + 180 * DAY_MS);
       // And within a small tolerance of the requested instant.
       expect(Math.abs(stored - oneYearOut.getTime())).toBeLessThan(5 * 60 * 1000);
+    });
+
+    it("caps explicit far-future edit dates to the configured max TTL", async () => {
+      const drawing = await createDrawing();
+      const oneYearOut = new Date(Date.now() + 365 * DAY_MS);
+      const res = await createLinkShare(drawing.id, "edit", {
+        expiresAt: oneYearOut.toISOString(),
+      });
+      const stored = new Date(res.body.share.expiresAt as string).getTime();
+      expect(stored).toBeGreaterThan(Date.now() + 89 * DAY_MS);
+      expect(stored).toBeLessThan(Date.now() + 91 * DAY_MS);
+    });
+
+    it("rejects explicit past expiry dates", async () => {
+      const drawing = await createDrawing();
+      const res = await postLinkShare(drawing.id, "view", {
+        expiresAt: new Date(Date.now() - HOUR_MS).toISOString(),
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe("Expiry must be at least 1 minute in the future");
+    });
+
+    it("rejects invalid explicit expiry values", async () => {
+      const drawing = await createDrawing();
+      const res = await postLinkShare(drawing.id, "view", {
+        expiresAt: "not-a-date",
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe("Invalid expiry");
     });
 
     it("applies the permission default TTL when expiresAt is omitted (view)", async () => {

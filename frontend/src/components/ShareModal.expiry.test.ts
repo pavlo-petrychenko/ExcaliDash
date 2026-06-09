@@ -29,6 +29,10 @@ describe("calculateExpiresAt", () => {
   it("returns undefined for an empty custom value", () => {
     expect(calculateExpiresAt("custom", "")).toBeUndefined();
   });
+
+  it("returns undefined for a past custom value", () => {
+    expect(calculateExpiresAt("custom", "2000-01-02T03:04")).toBeUndefined();
+  });
 });
 
 describe("deriveExpiryStateFromLink", () => {

@@ -29,6 +29,7 @@ const toIsoFromDatetimeLocal = (value: string): string | undefined => {
   if (!trimmed) return undefined;
   const date = new Date(trimmed);
   if (!Number.isFinite(date.getTime())) return undefined;
+  if (date.getTime() <= Date.now()) return undefined;
   return date.toISOString();
 };
 
@@ -349,6 +350,15 @@ export const ShareModal: React.FC<Props> = ({ drawingId, drawingName, isOpen, on
     expiryOption?: string;
     customExpiry?: string;
   }) => {
+    const perm = overrides?.permission ?? linkPermission;
+    const opt = overrides?.expiryOption ?? expiryOption;
+    const custom = overrides?.customExpiry ?? customExpiry;
+    const resolvedExpiry = resolveLinkShareExpiresAt(opt, custom);
+    if (!resolvedExpiry.ok) {
+      setError("Choose a valid future auto-disable date");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     try {
@@ -356,16 +366,7 @@ export const ShareModal: React.FC<Props> = ({ drawingId, drawingName, isOpen, on
         await api.revokeLinkShare(drawingId, activeLink.id);
       }
 
-      const perm = overrides?.permission ?? linkPermission;
-      const opt = overrides?.expiryOption ?? expiryOption;
-      const custom = overrides?.customExpiry ?? customExpiry;
       setLinkPermission(perm);
-
-      const resolvedExpiry = resolveLinkShareExpiresAt(opt, custom);
-      if (!resolvedExpiry.ok) {
-        setError("Choose a valid auto-disable date");
-        return;
-      }
 
       await api.createLinkShare(drawingId, {
         permission: perm,
@@ -588,6 +589,7 @@ export const ShareModal: React.FC<Props> = ({ drawingId, drawingName, isOpen, on
                         value={customExpiry}
                         onChange={(e) => setCustomExpiry(e.target.value)}
                         onBlur={() => void handleUpdateLink()}
+                        min={toDatetimeLocalValue(new Date(Date.now() + 60_000).toISOString())}
                         className="w-full px-3 py-1.5 rounded-xl border-2 border-black dark:border-neutral-700 bg-slate-50 dark:bg-neutral-800 text-[10px] font-black focus:outline-none focus:border-indigo-600 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.05)]"
                       />
                     )}
