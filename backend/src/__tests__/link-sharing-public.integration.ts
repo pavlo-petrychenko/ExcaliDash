@@ -47,17 +47,39 @@ describe("Link Sharing - Public By Drawing ID", () => {
 
   const createLinkShare = async (
     drawingId: string,
-    permission: "view" | "edit"
+    permission: "view" | "edit",
+    body?: { expiresAt?: string | null },
   ) => {
+    const payload: Record<string, unknown> = { permission };
+    if (body && Object.prototype.hasOwnProperty.call(body, "expiresAt")) {
+      payload.expiresAt = body.expiresAt;
+    }
     const response = await ownerAgent
       .post(`/drawings/${drawingId}/link-shares`)
       .set("User-Agent", userAgent)
       .set("Authorization", `Bearer ${ownerToken}`)
       .set(ownerCsrfHeaderName, ownerCsrfToken)
-      .send({ permission });
+      .send(payload);
 
     expect(response.status).toBe(200);
     return response;
+  };
+
+  const postLinkShare = async (
+    drawingId: string,
+    permission: "view" | "edit",
+    body?: { expiresAt?: string | null },
+  ) => {
+    const payload: Record<string, unknown> = { permission };
+    if (body && Object.prototype.hasOwnProperty.call(body, "expiresAt")) {
+      payload.expiresAt = body.expiresAt;
+    }
+    return ownerAgent
+      .post(`/drawings/${drawingId}/link-shares`)
+      .set("User-Agent", userAgent)
+      .set("Authorization", `Bearer ${ownerToken}`)
+      .set(ownerCsrfHeaderName, ownerCsrfToken)
+      .send(payload);
   };
 
   const createAnonymousAgentWithCsrf = async () => {
@@ -319,5 +341,69 @@ describe("Link Sharing - Public By Drawing ID", () => {
       where: { drawingId: drawing.id, revokedAt: null },
     });
     expect(activeCount).toBe(1);
+  });
+
+  describe("link-share expiry resolution", () => {
+    const HOUR_MS = 60 * 60 * 1000;
+    const DAY_MS = 24 * HOUR_MS;
+
+    it("stores null expiry when view expiresAt is explicitly null", async () => {
+      const drawing = await createDrawing();
+      const res = await createLinkShare(drawing.id, "view", { expiresAt: null });
+      expect(res.body.share.expiresAt).toBeNull();
+    });
+
+    it("uses the default expiry when view expiresAt is omitted", async () => {
+      const drawing = await createDrawing();
+      const res = await createLinkShare(drawing.id, "view");
+      const stored = new Date(res.body.share.expiresAt as string).getTime();
+      expect(stored).toBeGreaterThan(Date.now() + 29 * DAY_MS);
+      expect(stored).toBeLessThan(Date.now() + 31 * DAY_MS);
+    });
+
+    it("uses the default expiry when edit expiresAt is explicitly null", async () => {
+      const drawing = await createDrawing();
+      const res = await createLinkShare(drawing.id, "edit", { expiresAt: null });
+      const stored = new Date(res.body.share.expiresAt as string).getTime();
+      expect(stored).toBeGreaterThan(Date.now() + 6 * DAY_MS);
+      expect(stored).toBeLessThan(Date.now() + 8 * DAY_MS);
+    });
+
+    it("honors explicit far-future view dates without the edit-link cap", async () => {
+      const drawing = await createDrawing();
+      const oneYearOut = new Date(Date.now() + 365 * DAY_MS);
+      const res = await createLinkShare(drawing.id, "view", {
+        expiresAt: oneYearOut.toISOString(),
+      });
+      const stored = new Date(res.body.share.expiresAt as string).getTime();
+      expect(stored).toBeGreaterThan(Date.now() + 180 * DAY_MS);
+      expect(Math.abs(stored - oneYearOut.getTime())).toBeLessThan(5 * 60_000);
+    });
+
+    it("caps explicit far-future edit dates to max ttl", async () => {
+      const drawing = await createDrawing();
+      const oneYearOut = new Date(Date.now() + 365 * DAY_MS);
+      const res = await createLinkShare(drawing.id, "edit", {
+        expiresAt: oneYearOut.toISOString(),
+      });
+      const stored = new Date(res.body.share.expiresAt as string).getTime();
+      expect(stored).toBeGreaterThan(Date.now() + 89 * DAY_MS);
+      expect(stored).toBeLessThan(Date.now() + 91 * DAY_MS);
+    });
+
+    it("rejects explicit past and invalid expiry values", async () => {
+      const drawing = await createDrawing();
+      const past = await postLinkShare(drawing.id, "view", {
+        expiresAt: new Date(Date.now() - HOUR_MS).toISOString(),
+      });
+      expect(past.status).toBe(400);
+      expect(past.body.message).toBe("Expiry must be at least 1 minute in the future");
+
+      const invalid = await postLinkShare(drawing.id, "view", {
+        expiresAt: "not-a-date",
+      });
+      expect(invalid.status).toBe(400);
+      expect(invalid.body.message).toBe("Invalid expiry");
+    });
   });
 });

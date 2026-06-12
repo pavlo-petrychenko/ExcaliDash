@@ -8,11 +8,18 @@ export const EXPIRY_OPTIONS = [
   { label: "Disable at...", value: "custom" },
 ];
 
+export const EXPIRY_OPTIONS_FOR_EDIT = EXPIRY_OPTIONS.filter(
+  (option) => option.value !== "never",
+);
+
+export const DEFAULT_EDIT_EXPIRY_OPTION = "7d";
+
 export const toIsoFromDatetimeLocal = (value: string): string | undefined => {
   const trimmed = (value || "").trim();
   if (!trimmed) return undefined;
   const date = new Date(trimmed);
   if (!Number.isFinite(date.getTime())) return undefined;
+  if (date.getTime() - Date.now() < 60_000) return undefined;
   return date.toISOString();
 };
 
@@ -27,8 +34,8 @@ export const toDatetimeLocalFromIso = (value: string | null): string => {
 export const calculateExpiresAt = (
   option: string,
   customDate?: string,
-): string | undefined => {
-  if (option === "never") return undefined;
+): string | null | undefined => {
+  if (option === "never") return null;
   if (option === "custom") return toIsoFromDatetimeLocal(customDate || "");
 
   const now = new Date();

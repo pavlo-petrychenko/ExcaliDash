@@ -4,6 +4,7 @@ import { AlertTriangle, Calendar, Globe, Lock, Shield } from "lucide-react";
 import * as api from "../../api";
 import { CustomSelect } from "./CustomSelect";
 import {
+  EXPIRY_OPTIONS_FOR_EDIT,
   calculateExpiresAt,
   EXPIRY_OPTIONS,
   formatAutoDisableText,
@@ -19,7 +20,7 @@ type Props = {
   setCustomExpiry: (value: string) => void;
   handleUpdateLink: (
     permission?: "view" | "edit",
-    expiresAt?: string,
+    expiresAt?: string | null,
   ) => void | Promise<void>;
   handleRevokeLink: () => void | Promise<void>;
 };
@@ -108,7 +109,11 @@ export const GeneralAccessSection: React.FC<Props> = ({
                   if (value !== "custom")
                     void handleUpdateLink(undefined, calculateExpiresAt(value));
                 }}
-                options={EXPIRY_OPTIONS}
+                options={
+                  linkPermission === "edit"
+                    ? EXPIRY_OPTIONS_FOR_EDIT
+                    : EXPIRY_OPTIONS
+                }
                 icon={
                   <Calendar
                     size={12}

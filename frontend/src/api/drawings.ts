@@ -186,7 +186,7 @@ export const revokeDrawingPermission = async (
 
 export const createLinkShare = async (
   drawingId: string,
-  params: { permission: "view" | "edit"; expiresAt?: string; passphrase?: string },
+  params: { permission: "view" | "edit"; expiresAt?: string | null; passphrase?: string },
 ): Promise<{ share: DrawingLinkShareRow }> => {
   const response = await api.post<{ share: DrawingLinkShareRow }>(
     `/drawings/${drawingId}/link-shares`,

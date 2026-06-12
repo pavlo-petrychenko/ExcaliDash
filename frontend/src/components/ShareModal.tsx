@@ -13,6 +13,7 @@ import { GeneralAccessSection } from "./share-modal/GeneralAccessSection";
 import { SharePeopleSection } from "./share-modal/SharePeopleSection";
 import {
   calculateExpiresAt,
+  DEFAULT_EDIT_EXPIRY_OPTION,
   toDatetimeLocalFromIso,
 } from "./share-modal/shareUtils";
 
@@ -223,7 +224,7 @@ export const ShareModal: React.FC<Props> = ({
 
   const handleUpdateLink = async (
     newPermission?: "view" | "edit",
-    newExpiry?: string,
+    newExpiry?: string | null,
   ) => {
     setIsLoading(true);
     setError(null);
@@ -233,8 +234,14 @@ export const ShareModal: React.FC<Props> = ({
       }
       const perm = newPermission ?? linkPermission;
       setLinkPermission(perm);
-      const expiresAt =
-        newExpiry ?? calculateExpiresAt(expiryOption, customExpiry);
+      let expiresAt =
+        newExpiry !== undefined
+          ? newExpiry
+          : calculateExpiresAt(expiryOption, customExpiry);
+      if (perm === "edit" && expiresAt === null) {
+        expiresAt = calculateExpiresAt(DEFAULT_EDIT_EXPIRY_OPTION);
+        setExpiryOption(DEFAULT_EDIT_EXPIRY_OPTION);
+      }
       await api.createLinkShare(drawingId, { permission: perm, expiresAt });
       await refresh();
       void handleCopy(shareableEditorUrl);
