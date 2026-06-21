@@ -70,55 +70,85 @@ export const useEditorCanvasHandlers = ({
   resolveSafeSnapshot,
   broadcastChanges,
 }: UseEditorCanvasHandlersParams) => {
+  const {
+    debouncedSave: debouncedSaveRef,
+    excalidrawAPI: excalidrawAPIRef,
+    hasHydratedInitialScene: hasHydratedInitialSceneRef,
+    hasSceneChangesSinceLoad: hasSceneChangesSinceLoadRef,
+    initialSceneElements: initialSceneElementsRef,
+    isBootstrappingScene: isBootstrappingSceneRef,
+    isSyncing: isSyncingRef,
+    isUnmounting: isUnmountingRef,
+    lastLocalChangeAt: lastLocalChangeAtRef,
+    latestAppState: latestAppStateRef,
+    latestElements: latestElementsRef,
+    latestFiles: latestFilesRef,
+    suspiciousBlankLoad: suspiciousBlankLoadRef,
+  } = refs;
+
   const handleCanvasChange = useCallback(
     (elements: readonly any[], appState: any, files?: Record<string, any>) => {
       if (!canEdit) return;
-      if (refs.isUnmounting.current) return;
-      if (refs.isSyncing.current) return;
-      refs.latestAppState.current = appState;
+      if (isUnmountingRef.current) return;
+      if (isSyncingRef.current) return;
+      latestAppStateRef.current = appState;
       const currentFiles =
-        files || refs.excalidrawAPI.current?.getFiles() || {};
+        files || excalidrawAPIRef.current?.getFiles() || {};
       if (Object.keys(currentFiles).length > 0) {
-        refs.latestFiles.current = currentFiles;
+        latestFilesRef.current = currentFiles;
       }
-      const allElements = refs.excalidrawAPI.current
-        ? refs.excalidrawAPI.current.getSceneElementsIncludingDeleted()
+      const allElements = excalidrawAPIRef.current
+        ? excalidrawAPIRef.current.getSceneElementsIncludingDeleted()
         : elements;
-      if (!refs.hasHydratedInitialScene.current) {
+      if (!hasHydratedInitialSceneRef.current) {
         const matchesInitialSnapshot = haveSameElements(
           allElements,
-          refs.initialSceneElements.current,
+          initialSceneElementsRef.current,
         );
         const transientHydrationEmpty = isSuspiciousEmptySnapshot(
-          refs.initialSceneElements.current,
+          initialSceneElementsRef.current,
           allElements,
         );
         const transientHydrationNonRenderable = isStaleNonRenderableSnapshot(
-          refs.initialSceneElements.current,
+          initialSceneElementsRef.current,
           allElements,
         );
         if (transientHydrationEmpty || transientHydrationNonRenderable) return;
-        refs.hasHydratedInitialScene.current = true;
-        refs.isBootstrappingScene.current = false;
+        hasHydratedInitialSceneRef.current = true;
+        isBootstrappingSceneRef.current = false;
         if (matchesInitialSnapshot) return;
       }
       const { prevented: preventedCanvasOverwrite } =
         resolveSafeSnapshot(allElements);
       if (preventedCanvasOverwrite) return;
       const hasRenderable = hasRenderableElements(allElements);
-      if (hasRenderable && refs.suspiciousBlankLoad.current) {
-        refs.suspiciousBlankLoad.current = false;
+      if (hasRenderable && suspiciousBlankLoadRef.current) {
+        suspiciousBlankLoadRef.current = false;
       }
-      if (refs.isBootstrappingScene.current && !hasRenderable) return;
-      refs.latestElements.current = allElements;
+      if (isBootstrappingSceneRef.current && !hasRenderable) return;
+      latestElementsRef.current = allElements;
       broadcastChanges(allElements, currentFiles);
     },
-    [broadcastChanges, canEdit, refs, resolveSafeSnapshot],
+    [
+      broadcastChanges,
+      canEdit,
+      excalidrawAPIRef,
+      hasHydratedInitialSceneRef,
+      initialSceneElementsRef,
+      isBootstrappingSceneRef,
+      isSyncingRef,
+      isUnmountingRef,
+      latestAppStateRef,
+      latestElementsRef,
+      latestFilesRef,
+      resolveSafeSnapshot,
+      suspiciousBlankLoadRef,
+    ],
   );
 
   const handleCanvasDropCapture = useCallback(
     async (event: React.DragEvent<HTMLDivElement>) => {
-      if (!canEdit || !refs.excalidrawAPI.current) return;
+      if (!canEdit || !excalidrawAPIRef.current) return;
       const allDroppedFiles = Array.from(event.dataTransfer?.files || []);
       const droppedImages = getDroppedImageFiles(event.dataTransfer);
       if (
@@ -129,7 +159,7 @@ export const useEditorCanvasHandlers = ({
       }
       event.preventDefault();
       event.stopPropagation();
-      const appState = refs.excalidrawAPI.current.getAppState?.();
+      const appState = excalidrawAPIRef.current.getAppState?.();
       if (!appState) return;
       try {
         const dropPoint = viewportCoordsToSceneCoords(
@@ -140,7 +170,7 @@ export const useEditorCanvasHandlers = ({
           droppedImages.map(loadDroppedImageData),
         );
         if (loadedImages.length === 0) return;
-        refs.excalidrawAPI.current.addFiles(
+        excalidrawAPIRef.current.addFiles(
           loadedImages.map(({ fileId, mimeType, dataURL, created }) => ({
             id: fileId,
             mimeType,
@@ -165,9 +195,9 @@ export const useEditorCanvasHandlers = ({
             };
           }),
         );
-        refs.excalidrawAPI.current.updateScene({
+        excalidrawAPIRef.current.updateScene({
           elements: [
-            ...refs.excalidrawAPI.current.getSceneElementsIncludingDeleted(),
+            ...excalidrawAPIRef.current.getSceneElementsIncludingDeleted(),
             ...imageElements,
           ],
           appState: {
@@ -182,35 +212,49 @@ export const useEditorCanvasHandlers = ({
         toast.error("Failed to import dropped images");
       }
     },
-    [canEdit, refs],
+    [canEdit, excalidrawAPIRef],
   );
 
   useEffect(() => {
     if (!drawingId || !isReady) return;
     const interval = window.setInterval(() => {
-      if (refs.isUnmounting.current) return;
-      if (refs.isSyncing.current) return;
-      if (!refs.excalidrawAPI.current) return;
-      const nextFiles = refs.excalidrawAPI.current.getFiles?.() || {};
+      if (isUnmountingRef.current) return;
+      if (isUnmountingRef.current) return;
+      if (isSyncingRef.current) return;
+      if (!excalidrawAPIRef.current) return;
+      const nextFiles = excalidrawAPIRef.current.getFiles?.() || {};
       const didEmit = emitFilesDeltaIfNeeded(nextFiles);
       if (
         didEmit &&
-        refs.latestAppState.current &&
-        refs.debouncedSave.current
+        latestAppStateRef.current &&
+        debouncedSaveRef.current
       ) {
-        refs.hasSceneChangesSinceLoad.current = true;
-        refs.lastLocalChangeAt.current = Date.now();
-        refs.debouncedSave.current(
+        hasSceneChangesSinceLoadRef.current = true;
+        lastLocalChangeAtRef.current = Date.now();
+        debouncedSaveRef.current(
           drawingId,
-          refs.latestElements.current,
-          refs.latestAppState.current,
+          latestElementsRef.current,
+          latestAppStateRef.current,
           nextFiles,
         );
         debouncedSavePreview(drawingId);
       }
     }, 1000);
     return () => window.clearInterval(interval);
-  }, [debouncedSavePreview, drawingId, emitFilesDeltaIfNeeded, isReady, refs]);
+  }, [
+    debouncedSavePreview,
+    debouncedSaveRef,
+    drawingId,
+    emitFilesDeltaIfNeeded,
+    excalidrawAPIRef,
+    hasSceneChangesSinceLoadRef,
+    isReady,
+    isSyncingRef,
+    isUnmountingRef,
+    lastLocalChangeAtRef,
+    latestAppStateRef,
+    latestElementsRef,
+  ]);
 
   return { handleCanvasChange, handleCanvasDropCapture };
 };

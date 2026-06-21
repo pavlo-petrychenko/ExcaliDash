@@ -153,7 +153,9 @@ export const ShareModal: React.FC<Props> = ({
       }
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
-    } catch {}
+    } catch {
+      // Clipboard access can be denied by the browser; sharing still works via visible link text.
+    }
   };
 
   const handleAddUser = async (uId: string) => {

@@ -75,6 +75,7 @@ export const ImpersonationBanner: React.FC = () => {
             clearLocalImpersonation();
           }
         } catch {
+          // Ignore transient auth-status failures; the next poll/storage event will resync.
         }
       };
 

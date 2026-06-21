@@ -41,7 +41,9 @@ const writeStoredSortConfig = (config: {
       DASHBOARD_SORT_STORAGE_KEY,
       JSON.stringify(config),
     );
-  } catch {}
+  } catch {
+    // Ignore unavailable storage in private/embedded contexts.
+  }
 };
 
 export const sortOptions: {

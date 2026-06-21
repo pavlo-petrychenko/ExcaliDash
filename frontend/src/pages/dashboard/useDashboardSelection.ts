@@ -22,7 +22,7 @@ export const useDashboardSelection = ({
 
   const resetSelection = useCallback(() => {
     setSelectedIds(new Set());
-  }, []);
+  }, [setSelectedIds]);
 
   const selectionBounds = useMemo<SelectionBounds | null>(() => {
     if (!dragStart || !dragCurrent) return null;
@@ -69,7 +69,7 @@ export const useDashboardSelection = ({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragSelecting, dragStart, dragCurrent, drawings, selectedIds]);
+  }, [isDragSelecting, dragStart, dragCurrent, drawings, selectedIds, setSelectedIds]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -95,7 +95,7 @@ export const useDashboardSelection = ({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [drawings, searchInputRef]);
+  }, [drawings, searchInputRef, setSelectedIds]);
 
   const handleMouseDown = (event: React.MouseEvent) => {
     if (

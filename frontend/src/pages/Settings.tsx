@@ -99,7 +99,9 @@ export const Settings: React.FC = () => {
     const next = !imageCompression;
     try {
       window.localStorage?.setItem?.(COMPRESSION_ENABLED_KEY, String(next));
-    } catch {}
+    } catch {
+      // Ignore unavailable storage in private/embedded contexts.
+    }
     setImageCompression(next);
   };
   const checkForUpdates = async (channel: api.UpdateChannel) => {
@@ -113,7 +115,9 @@ export const Settings: React.FC = () => {
           `${UPDATE_INFO_KEY}:${channel}`,
           JSON.stringify(info),
         );
-      } catch {}
+      } catch {
+        // Ignore unavailable storage in private/embedded contexts.
+      }
     } catch (err: unknown) {
       let message = "Failed to check for updates";
       if (api.isAxiosError(err)) {
@@ -321,7 +325,9 @@ export const Settings: React.FC = () => {
         onUpdateChannelChange={(next) => {
           try {
             window.localStorage?.setItem?.(UPDATE_CHANNEL_KEY, next);
-          } catch {}
+          } catch {
+            // Ignore unavailable storage in private/embedded contexts.
+          }
           setUpdateChannel(next);
           void checkForUpdates(next);
         }}

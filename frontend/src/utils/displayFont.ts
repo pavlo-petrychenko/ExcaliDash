@@ -1,7 +1,7 @@
 export const displayFontFamily = "var(--excalidash-display-font, Excalifont)";
 
 const quoteFontFamily = (family: string): string => {
-  if (/^['\"].*['\"]$/.test(family)) return family;
+  if (/^['"].*['"]$/.test(family)) return family;
   return `'${family.replace(/'/g, "\\'")}'`;
 };
 

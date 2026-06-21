@@ -92,26 +92,6 @@ export const Editor: React.FC = () => {
       initialSceneElementsRef,
       latestElementsRef,
     });
-  const emitFilesDeltaIfNeeded = useCallback(
-    (nextFiles: Record<string, any>) => {
-      if (!socketRef.current || !id) return false;
-      const filesDelta = getFilesDelta(
-        lastSyncedFilesRef.current,
-        nextFiles || {},
-      );
-      if (Object.keys(filesDelta).length === 0) return false;
-      latestFilesRef.current = nextFiles;
-      lastSyncedFilesRef.current = nextFiles;
-      socketRef.current.emit("element-update", {
-        drawingId: id,
-        elements: [],
-        files: filesDelta,
-        userId: socketMeRef.current.id,
-      });
-      return true;
-    },
-    [id],
-  );
   useEffect(() => {
     isUnmounting.current = false;
     return () => {
@@ -139,6 +119,26 @@ export const Editor: React.FC = () => {
       recordElementVersion,
       onAccessDenied: handleSocketAccessDenied,
     });
+  const emitFilesDeltaIfNeeded = useCallback(
+    (nextFiles: Record<string, any>) => {
+      if (!socketRef.current || !id) return false;
+      const filesDelta = getFilesDelta(
+        lastSyncedFilesRef.current,
+        nextFiles || {},
+      );
+      if (Object.keys(filesDelta).length === 0) return false;
+      latestFilesRef.current = nextFiles;
+      lastSyncedFilesRef.current = nextFiles;
+      socketRef.current.emit("element-update", {
+        drawingId: id,
+        elements: [],
+        files: filesDelta,
+        userId: socketMeRef.current.id,
+      });
+      return true;
+    },
+    [id, socketMeRef, socketRef],
+  );
   const setExcalidrawAPI = useCallback(
     (api: any) => {
       excalidrawAPI.current = api;
@@ -178,7 +178,7 @@ export const Editor: React.FC = () => {
       }
       setIsReady(true);
     },
-    [emitFilesDeltaIfNeeded, id],
+    [emitFilesDeltaIfNeeded, id, isSyncing],
   );
   useLibraryImportFromUrl({ excalidrawAPIRef: excalidrawAPI, isReady, user });
   const persistenceRefs = React.useMemo(
@@ -219,13 +219,13 @@ export const Editor: React.FC = () => {
   const broadcastChanges = useEditorBroadcast({
     drawingId: id,
     excalidrawAPI,
-    lastLocalChangeAt: lastLocalChangeAtRef,
-    lastSyncedElementOrderSig: lastSyncedElementOrderSigRef,
-    lastSyncedFiles: lastSyncedFilesRef,
-    latestAppState: latestAppStateRef,
-    latestFiles: latestFilesRef,
-    socketMe: socketMeRef,
-    socket: socketRef,
+    lastLocalChangeAtRef,
+    lastSyncedElementOrderSigRef,
+    lastSyncedFilesRef,
+    latestAppStateRef,
+    latestFilesRef,
+    socketMeRef,
+    socketRef,
     debouncedSave,
     debouncedSavePreview,
     computeElementOrderSig,
@@ -253,7 +253,7 @@ export const Editor: React.FC = () => {
       isBootstrappingScene,
       hasHydratedInitialScene,
     }),
-    [],
+    [elementVersionMap],
   );
   useEditorSceneLoader({
     id,
@@ -307,7 +307,7 @@ export const Editor: React.FC = () => {
       savePreview: savePreviewRef,
       suspiciousBlankLoad: suspiciousBlankLoadRef,
     }),
-    [],
+    [saveDataRef, savePreviewRef],
   );
   const {
     handleBackClick,
