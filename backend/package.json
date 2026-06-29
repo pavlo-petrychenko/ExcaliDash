@@ -15,17 +15,20 @@
     "oidc:doctor": "node scripts/oidc-doctor.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "check:max-lines": "node ../scripts/check-source-line-count.cjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1026.0",
+    "@aws-sdk/s3-request-presigner": "^3.1026.0",
     "@prisma/client": "^5.22.0",
     "archiver": "^7.0.1",
     "bcrypt": "^6.0.0",
-    "better-sqlite3": "^12.4.6",
+    "better-sqlite3": "^12.11.1",
     "cors": "^2.8.5",
     "dompurify": "^3.3.0",
     "dotenv": "^17.2.3",
@@ -60,6 +63,6 @@
     "supertest": "^7.1.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.15"
+    "vitest": "^4.1.8"
   }
 }

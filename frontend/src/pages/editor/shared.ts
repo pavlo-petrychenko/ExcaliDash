@@ -7,6 +7,37 @@ export interface ElementVersionInfo {
   contentSig: string;
 }
 
+const toFiniteNumber = (value: any): number => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+export const getElementContentSig = (element: any): string => {
+  if (!element || typeof element !== "object") return "";
+  const type = typeof element.type === "string" ? element.type : "";
+  const isDeleted = element.isDeleted ? "1" : "0";
+  const status = typeof element.status === "string" ? element.status : "";
+  const x = toFiniteNumber(element.x);
+  const y = toFiniteNumber(element.y);
+  const w = toFiniteNumber(element.width);
+  const h = toFiniteNumber(element.height);
+  const angle = toFiniteNumber(element.angle);
+  const fileId = typeof element.fileId === "string" ? element.fileId : "";
+  const text = typeof element.text === "string" ? element.text : "";
+  const textSig = text ? `t${text.length}:${text.slice(0, 64)}` : "";
+  let pointsSig = "";
+  if (Array.isArray(element.points)) {
+    const pts = element.points as any[];
+    const len = pts.length;
+    const last = len > 0 ? pts[len - 1] : null;
+    const lastX = Array.isArray(last) ? toFiniteNumber(last[0]) : 0;
+    const lastY = Array.isArray(last) ? toFiniteNumber(last[1]) : 0;
+    pointsSig = `p${len}:${lastX},${lastY}`;
+  }
+  return `${type}|${isDeleted}|${status}|${x}|${y}|${w}|${h}|${angle}|${pointsSig}|${fileId}|${textSig}`;
+};
+
 /**
  * Matches CaptureUpdateAction.NEVER from @excalidraw/excalidraw.
  * Kept as a local constant so that shared.ts doesn't pull in the full

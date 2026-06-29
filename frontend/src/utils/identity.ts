@@ -187,6 +187,7 @@ export const getUserIdentity = (): UserIdentity => {
         return normalized;
       }
     } catch {
+      // Ignore invalid legacy identity data and fall back to a deterministic guest identity.
     }
   }
 

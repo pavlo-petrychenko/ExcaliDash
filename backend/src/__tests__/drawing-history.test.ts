@@ -87,7 +87,7 @@ function buildApp() {
     MAX_PAGE_SIZE: 100,
     config: { nodeEnv: "test", enableAuditLogging: false },
     logAuditEvent: vi.fn(),
-  });
+  } as any);
 
   return { app, prisma };
 }

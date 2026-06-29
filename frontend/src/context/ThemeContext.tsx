@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import * as api from '../api';
 
 type Theme = 'light' | 'dark';
 
@@ -12,13 +13,29 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>(() => {
     const savedTheme = localStorage.getItem('theme');
-    return (savedTheme as Theme) || 'light';
+    return savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : 'light';
   });
 
   useEffect(() => {
-    console.log('Theme changed to:', theme);
+    let cancelled = false;
+    api.getUserPreferences()
+      .then((preferences) => {
+        if (cancelled) return;
+        if (preferences.theme === 'dark' || preferences.theme === 'light') {
+          setTheme(preferences.theme);
+        }
+      })
+      .catch(() => {
+        // Anonymous/local pre-login screens keep using localStorage.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('theme', theme);
-    
+
     const link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
     if (link) {
       link.href = theme === 'dark' ? '/favicon-dark.svg' : '/favicon-light.svg';
@@ -26,15 +43,19 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
-      console.log('Added dark class, classList:', document.documentElement.classList.toString());
     } else {
       document.documentElement.classList.remove('dark');
     }
   }, [theme]);
 
   const toggleTheme = () => {
-    console.log('Toggling theme');
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+    setTheme((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      api.updateUserPreferences({ theme: next }).catch(() => {
+        // Keep local preference even when the user is anonymous/offline.
+      });
+      return next;
+    });
   };
 
   return (

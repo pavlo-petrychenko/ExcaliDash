@@ -4,16 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as api from '../api';
 import type { Collection } from '../types';
-import { User, Lock, Save, X } from 'lucide-react';
+import { User, Save, X } from 'lucide-react';
 import { USER_KEY } from '../utils/impersonation';
-import { getPasswordPolicy, validatePassword } from '../utils/passwordPolicy';
-import { PasswordRequirements } from '../components/PasswordRequirements';
+import { displayFontFamily } from "../utils/displayFont";
+import { ApiKeysCard } from "./profile/ApiKeysCard";
+import { PasswordCard } from "./profile/PasswordCard";
 
 export const Profile: React.FC = () => {
     const { user: authUser, logout, authEnabled } = useAuth();
     const navigate = useNavigate();
     const mustResetPassword = Boolean(authUser?.mustResetPassword);
-    const passwordPolicy = getPasswordPolicy();
     const [collections, setCollections] = useState<Collection[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -25,10 +25,7 @@ export const Profile: React.FC = () => {
     const [emailCurrentPassword, setEmailCurrentPassword] = useState('');
     const [emailLoading, setEmailLoading] = useState(false);
 
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [showPasswordForm, setShowPasswordForm] = useState(false);
+
 
     useEffect(() => {
         if (authEnabled === false) {
@@ -51,11 +48,9 @@ export const Profile: React.FC = () => {
         fetchData();
     }, [authEnabled, authUser, navigate]);
 
-    useEffect(() => {
-        if (mustResetPassword) {
-            setShowPasswordForm(true);
-        }
-    }, [mustResetPassword]);
+
+
+
 
     const handleSelectCollection = (id: string | null | undefined) => {
         if (id === undefined) navigate('/');
@@ -115,55 +110,7 @@ export const Profile: React.FC = () => {
         }
     };
 
-    const handleChangePassword = async () => {
-        if (!currentPassword || !newPassword || !confirmPassword) {
-            setError('All password fields are required');
-            return;
-        }
 
-        const passwordError = validatePassword(newPassword, passwordPolicy);
-        if (passwordError) {
-            setError(passwordError);
-            return;
-        }
-
-        if (newPassword !== confirmPassword) {
-            setError('New passwords do not match');
-            return;
-        }
-
-        setLoading(true);
-        setError('');
-        setSuccess('');
-
-        try {
-            await api.api.post('/auth/change-password', {
-                currentPassword,
-                newPassword,
-            });
-            setSuccess('Password changed successfully');
-            setShowPasswordForm(false);
-            setCurrentPassword('');
-            setNewPassword('');
-            setConfirmPassword('');
-            setTimeout(() => {
-                logout();
-                navigate('/login');
-            }, 2000);
-        } catch (err: unknown) {
-            let message = 'Failed to change password';
-            if (api.isAxiosError(err)) {
-                if (err.response?.data?.message) {
-                    message = err.response.data.message;
-                } else if (err.response?.data?.error) {
-                    message = err.response.data.error;
-                }
-            }
-            setError(message);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleUpdateEmail = async () => {
         if (mustResetPassword) {
@@ -222,7 +169,7 @@ export const Profile: React.FC = () => {
             onEditCollection={handleEditCollection}
             onDeleteCollection={handleDeleteCollection}
         >
-            <h1 className="text-3xl sm:text-5xl mb-6 sm:mb-8 text-slate-900 dark:text-white pl-1" style={{ fontFamily: 'Excalifont' }}>
+            <h1 className="text-3xl sm:text-5xl mb-6 sm:mb-8 text-slate-900 dark:text-white pl-1" style={{ fontFamily: displayFontFamily }}>
                 Profile
             </h1>
 
@@ -362,106 +309,14 @@ export const Profile: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-neutral-900 border-2 border-black dark:border-neutral-700 rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.2)] p-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 bg-rose-50 dark:bg-neutral-800 rounded-xl flex items-center justify-center border-2 border-rose-100 dark:border-neutral-700">
-                                <Lock size={24} className="text-rose-600 dark:text-rose-400" />
-                            </div>
-                            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Change Password</h2>
-                        </div>
-                        {!showPasswordForm && !mustResetPassword && (
-                            <button
-                                onClick={() => setShowPasswordForm(true)}
-                                className="px-4 py-2 bg-rose-600 dark:bg-rose-500 text-white font-bold rounded-xl border-2 border-black dark:border-neutral-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.2)] hover:-translate-y-0.5 transition-all duration-200"
-                            >
-                                Change Password
-                            </button>
-                        )}
-                    </div>
+                <ApiKeysCard disabled={mustResetPassword} onSuccess={setSuccess} />
 
-                    {showPasswordForm && (
-                        <div className="space-y-4">
-                            <div>
-                                <label htmlFor="currentPassword" className="block text-sm font-bold text-slate-700 dark:text-neutral-300 mb-2">
-                                    Current Password
-                                </label>
-                                <input
-                                    id="currentPassword"
-                                    type="password"
-                                    value={currentPassword}
-                                    onChange={(e) => setCurrentPassword(e.target.value)}
-                                    className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border-2 border-black dark:border-neutral-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 dark:focus:ring-rose-400 font-medium"
-                                    placeholder="Enter current password"
-                                />
-                            </div>
-
-                            <div>
-                                <label htmlFor="newPassword" className="block text-sm font-bold text-slate-700 dark:text-neutral-300 mb-2">
-                                    New Password
-                                </label>
-                                <input
-                                    id="newPassword"
-                                    type="password"
-                                    value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    minLength={passwordPolicy.minLength}
-                                    maxLength={passwordPolicy.maxLength}
-                                    pattern={passwordPolicy.patternHtml}
-                                    className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border-2 border-black dark:border-neutral-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 dark:focus:ring-rose-400 font-medium"
-                                    placeholder="Enter new password"
-                                />
-                                <PasswordRequirements
-                                    password={newPassword}
-                                    policy={passwordPolicy}
-                                    className="text-slate-600 dark:text-neutral-400"
-                                />
-                            </div>
-
-                            <div>
-                                <label htmlFor="confirmPassword" className="block text-sm font-bold text-slate-700 dark:text-neutral-300 mb-2">
-                                    Confirm New Password
-                                </label>
-                                <input
-                                    id="confirmPassword"
-                                    type="password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    minLength={passwordPolicy.minLength}
-                                    maxLength={passwordPolicy.maxLength}
-                                    className="w-full px-4 py-3 bg-white dark:bg-neutral-800 border-2 border-black dark:border-neutral-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500 dark:focus:ring-rose-400 font-medium"
-                                    placeholder="Confirm new password"
-                                />
-                            </div>
-
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    onClick={handleChangePassword}
-                                    disabled={loading || !currentPassword || !newPassword || !confirmPassword}
-                                    className="flex-1 px-6 py-3 bg-rose-600 dark:bg-rose-500 text-white font-bold rounded-xl border-2 border-black dark:border-neutral-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.2)] hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:disabled:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)]"
-                                >
-                                    {loading ? 'Changing...' : 'Change Password'}
-                                </button>
-                                    {!mustResetPassword && (
-	                                    <button
-	                                        onClick={() => {
-	                                            setShowPasswordForm(false);
-	                                            setCurrentPassword('');
-	                                            setNewPassword('');
-	                                            setConfirmPassword('');
-	                                            setError('');
-	                                        }}
-	                                        disabled={loading}
-	                                        className="px-6 py-3 bg-white dark:bg-neutral-800 text-slate-700 dark:text-neutral-300 font-bold rounded-xl border-2 border-black dark:border-neutral-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)] hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[4px_4px_0px_0px_rgba(255,255,255,0.2)] hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-	                                    >
-	                                        <X size={18} />
-	                                        Cancel
-	                                    </button>
-                                    )}
-	                            </div>
-	                        </div>
-	                    )}
-                </div>
+                <PasswordCard
+                    mustResetPassword={mustResetPassword}
+                    logout={logout}
+                    onError={setError}
+                    onSuccess={setSuccess}
+                />
             </div>
         </Layout>
     );

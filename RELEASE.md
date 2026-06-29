@@ -16,8 +16,9 @@ Release date: 2026-06-21
 
 ### Data safety checklist
 
-- Back up backend volume (`dev.db`, secrets) before upgrading.
+- Back up the backend volume (`dev.db`, secrets, uploads, and S3 bucket data) before upgrading.
 - Let migrations run on startup (`RUN_MIGRATIONS=true`) for normal deploys.
+- If S3 is enabled, verify that existing object keys follow the canonical layout `{prefix}/{userId}/{drawingId}/{fileId}.{ext}`.
 - Run `docker compose -f docker-compose.prod.yml logs backend --tail=200` after rollout and verify startup/migration status.
 
 ### Recommended upgrade (Docker Hub compose)

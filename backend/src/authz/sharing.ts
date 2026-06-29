@@ -7,14 +7,18 @@ export type DrawingAccess = "none" | DrawingPermission | "owner";
 
 export type DrawingPrincipal = { kind: "user"; userId: string };
 
-export const normalizeDrawingPermission = (input: unknown): DrawingPermission | null => {
+export const normalizeDrawingPermission = (
+  input: unknown,
+): DrawingPermission | null => {
   if (input === "view" || input === "edit") return input;
   return null;
 };
 
-export const buildShareLinkToken = (): string => crypto.randomBytes(24).toString("base64url");
+export const buildShareLinkToken = (): string =>
+  crypto.randomBytes(24).toString("base64url");
 
-export const hashShareLinkToken = (token: string): string => hashTokenForStorage(token);
+export const hashShareLinkToken = (token: string): string =>
+  hashTokenForStorage(token);
 
 const normalizePassphraseForHash = (value: string): string =>
   value.trim().toLowerCase().replace(/\s+/g, " ");
@@ -39,7 +43,7 @@ export const hashPassphrase = (value: string, pepper: string): string => {
       blockSize: DEFAULT_SCRYPT_R,
       parallelization: DEFAULT_SCRYPT_P,
       maxmem: DEFAULT_SCRYPT_MAXMEM,
-    }
+    },
   );
   return [
     SCRYPT_PREFIX,
@@ -54,7 +58,7 @@ export const hashPassphrase = (value: string, pepper: string): string => {
 export const verifyPassphraseHash = (
   provided: string,
   expected: string,
-  pepper: string
+  pepper: string,
 ): boolean => {
   const normalized = normalizePassphraseForHash(provided);
   const expectedText = (expected || "").trim();
@@ -93,7 +97,7 @@ export const verifyPassphraseHash = (
         blockSize: r,
         parallelization: p,
         maxmem: DEFAULT_SCRYPT_MAXMEM,
-      }
+      },
     );
     if (actualKey.length !== expectedKey.length) return false;
     return crypto.timingSafeEqual(actualKey, expectedKey);
@@ -101,7 +105,10 @@ export const verifyPassphraseHash = (
 
   // Legacy format: sha256 hex of `${pepper}|${normalized}` (no salt).
   if (/^[0-9a-f]{64}$/i.test(expectedText)) {
-    const legacyHash = crypto.createHash("sha256").update(`${pepper}|${normalized}`, "utf8").digest("hex");
+    const legacyHash = crypto
+      .createHash("sha256")
+      .update(`${pepper}|${normalized}`, "utf8")
+      .digest("hex");
     const expectedBuf = Buffer.from(expectedText, "hex");
     const actualBuf = Buffer.from(legacyHash, "hex");
     if (expectedBuf.length !== actualBuf.length) return false;
@@ -140,6 +147,43 @@ export const getDrawingAccess = async (params: {
       select: { permission: true },
     });
     baseAccess = normalizeDrawingPermission(perm?.permission) ?? baseAccess;
+
+    // Check collection-level share if no direct drawing permission found
+    // Check collection-level access if no direct drawing permission found
+    if (baseAccess === "none") {
+      const drawing = await params.prisma.drawing.findUnique({
+        where: { id: params.drawingId },
+        select: { collectionId: true, userId: true },
+      });
+      if (drawing?.collectionId) {
+        // Check if user owns the collection (guest created drawing in owner's collection)
+        const ownedCollection = await params.prisma.collection.findFirst({
+          where: {
+            id: drawing.collectionId,
+            userId: params.principal.userId,
+          },
+          select: { id: true },
+        });
+        if (ownedCollection) {
+          baseAccess = "owner";
+        } else {
+          // Check if user has a collection share entry
+          const collectionShare = await params.prisma.collectionShare.findFirst(
+            {
+              where: {
+                collectionId: drawing.collectionId,
+                granteeUserId: params.principal.userId,
+              },
+              select: { role: true },
+            },
+          );
+          if (collectionShare) {
+            baseAccess =
+              normalizeDrawingPermission(collectionShare.role) ?? baseAccess;
+          }
+        }
+      }
+    }
   }
 
   // Google Docs-style link policy: applies regardless of whether the visitor is signed in.
@@ -155,15 +199,16 @@ export const getDrawingAccess = async (params: {
 };
 
 export const canViewDrawing = (
-  access: DrawingAccess
+  access: DrawingAccess,
 ): access is Exclude<DrawingAccess, "none"> => access !== "none";
 
 export const canEditDrawing = (
-  access: DrawingAccess
+  access: DrawingAccess,
 ): access is Extract<DrawingAccess, "edit" | "owner"> =>
   access === "edit" || access === "owner";
 
-export const isOwnerAccess = (access: DrawingAccess): boolean => access === "owner";
+export const isOwnerAccess = (access: DrawingAccess): boolean =>
+  access === "owner";
 
 const getActiveLinkShareAccess = async (params: {
   prisma: PrismaClient;

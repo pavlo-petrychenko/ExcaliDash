@@ -90,6 +90,7 @@ export const setupTestDb = () => {
  * Clean up the test database between tests
  */
 export const cleanupTestDb = async (prisma: PrismaClient) => {
+  await prisma.apiKey.deleteMany({});
   await prisma.drawing.deleteMany({});
   await prisma.collection.deleteMany({});
 };

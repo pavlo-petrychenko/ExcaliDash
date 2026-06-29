@@ -4,8 +4,33 @@
 import dotenv from "dotenv";
 import crypto from "crypto";
 import path from "path";
+import {
+  type PasswordPolicyConfig,
+  buildPasswordPolicyMessage,
+  resolvePasswordPolicyConfig,
+  validatePasswordAgainstPolicy,
+} from "./config/passwordPolicy";
+import { validateProductionConfig } from "./config/production";
+
+export { buildPasswordPolicyMessage, validatePasswordAgainstPolicy };
 
 dotenv.config();
+
+interface S3Config {
+  bucket: string | null;
+  region: string;
+  endpoint: string | null;
+  publicUrl: string | null;
+  forcePathStyle: boolean;
+  accessKeyId: string | null;
+  secretAccessKey: string | null;
+}
+
+interface BackupConfig {
+  schedule: string | null;
+  dir: string;
+  retentionDays: number;
+}
 
 interface Config {
   port: number;
@@ -26,6 +51,9 @@ interface Config {
   enforceHttpsRedirect: boolean;
   bootstrapSetupCodeTtlMs: number;
   bootstrapSetupCodeMaxAttempts: number;
+  passwordPolicy: PasswordPolicyConfig;
+  backups: BackupConfig;
+  s3: S3Config;
 }
 
 export type AuthMode = "local" | "hybrid" | "oidc_enforced";
@@ -297,7 +325,27 @@ const resolveOidcConfig = (authMode: AuthMode): OidcConfig => {
   };
 };
 
+
+const resolveBackupConfig = (): BackupConfig => {
+  const backupDir = getOptionalTrimmedEnv("BACKUP_DIR") || path.resolve(__dirname, "../backups");
+  return {
+    schedule: getOptionalTrimmedEnv("BACKUP_SCHEDULE"),
+    dir: backupDir,
+    retentionDays: getRequiredEnvNumber("BACKUP_RETENTION_DAYS", 14),
+  };
+};
+
 const resolvedAuthMode = parseAuthMode(process.env.AUTH_MODE);
+
+const resolveS3Config = (): S3Config => ({
+  bucket: getOptionalTrimmedEnv("S3_BUCKET"),
+  region: getOptionalEnv("S3_REGION", "us-east-1"),
+  endpoint: getOptionalTrimmedEnv("S3_ENDPOINT"),
+  publicUrl: getOptionalTrimmedEnv("S3_PUBLIC_URL"),
+  forcePathStyle: getOptionalEnv("S3_FORCE_PATH_STYLE", "false").toLowerCase() === "true",
+  accessKeyId: getOptionalTrimmedEnv("AWS_ACCESS_KEY_ID"),
+  secretAccessKey: getOptionalTrimmedEnv("AWS_SECRET_ACCESS_KEY"),
+});
 
 export const config: Config = {
   port: getRequiredEnvNumber("PORT", 8000),
@@ -327,32 +375,13 @@ export const config: Config = {
     "BOOTSTRAP_SETUP_CODE_MAX_ATTEMPTS",
     10,
   ),
+  passwordPolicy: resolvePasswordPolicyConfig(getRequiredEnvNumber, getOptionalBoolean),
+  backups: resolveBackupConfig(),
+  s3: resolveS3Config(),
 };
 
 if (config.nodeEnv === "production") {
-  const normalizedSecret = config.jwtSecret.trim();
-  const insecureJwtSecretPlaceholders = new Set([
-    "your-secret-key-change-in-production",
-    "change-this-secret-in-production-min-32-chars",
-  ]);
-
-  if (config.jwtSecret.length < 32) {
-    throw new Error(
-      "JWT_SECRET must be at least 32 characters long in production",
-    );
-  }
-  if (insecureJwtSecretPlaceholders.has(normalizedSecret)) {
-    throw new Error(
-      "JWT_SECRET must be changed from placeholder/default value in production",
-    );
-  }
-  if (
-    config.oidc.enabled &&
-    config.oidc.redirectUri &&
-    !/^https:\/\//i.test(config.oidc.redirectUri)
-  ) {
-    throw new Error("OIDC_REDIRECT_URI must be HTTPS in production");
-  }
+  validateProductionConfig(config);
 }
 
 console.log("Configuration validated successfully");
