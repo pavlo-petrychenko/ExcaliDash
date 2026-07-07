@@ -28,8 +28,6 @@ services:
       - FRONTEND_URL=https://excalidraw.pavlop.dev
     volumes:
       - excalidash-data:/app/prisma
-    networks:
-      - excalidash
     healthcheck:
       test:
         - CMD
@@ -49,16 +47,15 @@ services:
       - "80"
     depends_on:
       - backend
-    networks:
-      - excalidash
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-networks:
-  excalidash:
+# No custom network: Coolify places all compose services on one managed network
+# that its Traefik proxy is attached to (service-name DNS still works). A custom
+# network puts containers on a second net Traefik can't reach -> routing 504s.
 
 volumes:
   excalidash-data:
