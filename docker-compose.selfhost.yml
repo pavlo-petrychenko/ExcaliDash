@@ -1,0 +1,64 @@
+# ExcaliDash — self-hosted Excalidraw dashboard/library.
+# Deployed via Coolify (build_pack=dockercompose) at https://excalidraw.pavlop.dev,
+# behind the Cloudflare tunnel + Cloudflare Access (3-email policy).
+#
+#   frontend (nginx)  ── the ONLY publicly-exposed service (Coolify assigns the FQDN) ──
+#       serves the SPA and proxies /api/ + /socket.io/ to backend:8000 (BACKEND_URL).
+#   backend (Node/Prisma)  ── internal ── drawings + users + collab, SQLite in a volume.
+#
+# Auth: local email/password (AUTH_MODE=local). Cloudflare Access is the outer gate.
+# JWT_SECRET / CSRF_SECRET are intentionally unset: the backend auto-generates and
+# persists them in the SQLite volume (fine for this single-instance deploy).
+
+services:
+  backend:
+    image: zimengxiong/excalidash-backend:0.5.1
+    restart: unless-stopped
+    environment:
+      - DATABASE_PROVIDER=sqlite
+      - DATABASE_URL=file:/app/prisma/dev.db
+      - PORT=8000
+      - NODE_ENV=production
+      - AUTH_MODE=local
+      # All traffic arrives through Traefik -> frontend nginx (both trusted),
+      # which forward X-Forwarded-Proto=https, so secure cookies work.
+      - TRUST_PROXY=true
+      # Traefik + Cloudflare already enforce HTTPS; avoid a double-redirect loop.
+      - ENFORCE_HTTPS_REDIRECT=false
+      - FRONTEND_URL=https://excalidraw.pavlop.dev
+    volumes:
+      - excalidash-data:/app/prisma
+    networks:
+      - excalidash
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:8000/health',(r)=>process.exit(r.statusCode===200?0:1))"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    image: zimengxiong/excalidash-frontend:0.5.1
+    restart: unless-stopped
+    environment:
+      - BACKEND_URL=backend:8000
+    expose:
+      - "80"
+    depends_on:
+      - backend
+    networks:
+      - excalidash
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  excalidash:
+
+volumes:
+  excalidash-data:
