@@ -16,6 +16,7 @@ import { DiagramSpecSchema } from "./spec.js";
 import {
   AllowedAppStateSchema,
   DrawingIdSchema,
+  jsonTolerant,
   LimitSchema,
   OffsetSchema,
   ResponseFormatSchema,
@@ -40,20 +41,16 @@ function exactlyOneAuthoringInput<T extends { spec?: unknown; skeleton?: unknown
 }
 
 const AuthoringInputShape = {
-  spec: DiagramSpecSchema.optional().describe(
+  spec: jsonTolerant(DiagramSpecSchema, "spec").optional().describe(
     "The ergonomic default: nodes + edges + a layout strategy. scene/layout.ts auto-positions everything.",
   ),
-  skeleton: z
-    .array(SkeletonEntrySchema)
-    .min(1)
+  skeleton: jsonTolerant(z.array(SkeletonEntrySchema).min(1), "skeleton", "array")
     .optional()
     .describe(
       "Power-user path: an ExcalidrawElementSkeleton[] (each entry needs at least a 'type'; x/y/width/height/label/etc. as usual). " +
         "Auto-wires bindings/indices via convertToExcalidrawElements — never hand-author fractional indices.",
     ),
-  elements: z
-    .array(SkeletonEntrySchema)
-    .min(1)
+  elements: jsonTolerant(z.array(SkeletonEntrySchema).min(1), "elements", "array")
     .optional()
     .describe(
       "Escape hatch: a raw Excalidraw elements array (already-complete elements, e.g. round-tripped from excalidash_get_drawing view:'full'). " +
@@ -119,8 +116,10 @@ export const RenderInputSchema = z
       .enum(["full", "region", "elements", "frame"])
       .default("full")
       .describe("'full'=whole scene. 'region' needs `region`. 'elements' needs `element_ids`. 'frame' needs `frame_id`."),
-    region: RegionSchema.optional().describe("Required when mode is 'region'."),
-    element_ids: z.array(z.string()).min(1).optional().describe("Required when mode is 'elements'."),
+    region: jsonTolerant(RegionSchema, "region").optional().describe("Required when mode is 'region'."),
+    element_ids: jsonTolerant(z.array(z.string()).min(1), "element_ids", "array")
+      .optional()
+      .describe("Required when mode is 'elements'."),
     frame_id: z.string().optional().describe("Required when mode is 'frame'."),
     scale: z.number().positive().default(1).describe("Zoom factor before the max_width clamp is applied."),
     max_width: z
@@ -150,8 +149,12 @@ export const CreateDiagramInputSchema = z
     ...AuthoringInputShape,
     collection_id: z.string().optional().describe("Collection to file the new drawing under; omit to leave it uncategorized."),
     background_color: z.string().optional().describe("Canvas background color hex, e.g. '#ffffff'. Shorthand for appState.viewBackgroundColor."),
-    app_state: AllowedAppStateSchema.optional().describe("Additional allow-listed appState overrides; viewBackgroundColor here wins over background_color."),
-    files: z.record(z.string(), z.unknown()).optional().describe("Binary files map (image data), keyed by file id, matching an 'image' element's fileId."),
+    app_state: jsonTolerant(AllowedAppStateSchema, "app_state")
+      .optional()
+      .describe("Additional allow-listed appState overrides; viewBackgroundColor here wins over background_color."),
+    files: jsonTolerant(z.record(z.string(), z.unknown()), "files")
+      .optional()
+      .describe("Binary files map (image data), keyed by file id, matching an 'image' element's fileId."),
     render: z.boolean().default(true).describe("Render a PNG of the new drawing and return it alongside the confirmation (the render->look->fix loop)."),
     render_scale: z.number().positive().optional().describe("Zoom factor for the render, when render is true."),
   })
@@ -168,14 +171,18 @@ const UpdateOpSchema = z
   .object({
     action: z.literal("update"),
     id: z.string().min(1).describe("Id of the element to patch (a node, an edge/arrow, or any other existing element id)."),
-    patch: z.record(z.string(), z.unknown()).describe("Fields to merge onto the element. 'id'/'type' are ignored if present — identity can't change via patch."),
+    patch: jsonTolerant(z.record(z.string(), z.unknown()), "patch").describe(
+      "Fields to merge onto the element. 'id'/'type' are ignored if present — identity can't change via patch.",
+    ),
   })
   .strict();
 
 const DeleteOpSchema = z
   .object({
     action: z.literal("delete"),
-    ids: z.array(z.string().min(1)).min(1).describe("Element ids to remove. Deleting a node also removes its bound label text."),
+    ids: jsonTolerant(z.array(z.string().min(1)).min(1), "ids", "array").describe(
+      "Element ids to remove. Deleting a node also removes its bound label text.",
+    ),
   })
   .strict();
 
@@ -191,20 +198,13 @@ const ReplaceAllOpSchema = z.object({ action: z.literal("replace_all"), ...Autho
 export const EditOpSchema = z.discriminatedUnion("action", [AddOpSchema, UpdateOpSchema, DeleteOpSchema, ReplaceAllOpSchema]);
 export type EditOp = z.infer<typeof EditOpSchema>;
 
-const EditOpsArraySchema = z
-  .array(EditOpSchema)
-  .min(1)
-  .superRefine((ops, ctx) => {
-    ops.forEach((op, index) => {
-      if (op.action === "add" || op.action === "replace_all") {
-        exactlyOneAuthoringInput(op, ctx, `ops[${index}] (${op.action})`, [index]);
-      }
-    });
-  })
-  .describe(
-    "Declarative edits applied in order: add (spec/skeleton/elements), update (patch by id), delete (by ids), or replace_all " +
-      "(spec/skeleton/elements; must be the only op in the list — it discards the rest of the scene). Re-applied once on a version conflict.",
-  );
+const EditOpsArraySchema = z.array(EditOpSchema).min(1).superRefine((ops, ctx) => {
+  ops.forEach((op, index) => {
+    if (op.action === "add" || op.action === "replace_all") {
+      exactlyOneAuthoringInput(op, ctx, `ops[${index}] (${op.action})`, [index]);
+    }
+  });
+});
 
 export const EditDiagramInputSchema = z
   .object({
@@ -214,7 +214,10 @@ export const EditDiagramInputSchema = z
       .int()
       .optional()
       .describe("Version you last saw (from get_drawing/a prior edit). If the drawing has moved on since, the edit is refused instead of silently applied on top of unseen changes."),
-    ops: EditOpsArraySchema,
+    ops: jsonTolerant(EditOpsArraySchema, "ops", "array").describe(
+      "Declarative edits applied in order: add (spec/skeleton/elements), update (patch by id), delete (by ids), or replace_all " +
+        "(spec/skeleton/elements; must be the only op in the list — it discards the rest of the scene). Re-applied once on a version conflict.",
+    ),
     relayout: z
       .boolean()
       .default(false)
@@ -223,7 +226,9 @@ export const EditDiagramInputSchema = z
           "nodes and arrow edges (plus their bound labels) — i.e. DiagramSpec-shaped scenes; fails actionably otherwise.",
       ),
     snapshot_first: z.boolean().default(false).describe("Duplicate the drawing before editing, as cheap insurance against a bad edit (the backend also auto-snapshots)."),
-    app_state: AllowedAppStateSchema.optional().describe("Additional allow-listed appState overrides to apply alongside the ops."),
+    app_state: jsonTolerant(AllowedAppStateSchema, "app_state")
+      .optional()
+      .describe("Additional allow-listed appState overrides to apply alongside the ops."),
     render: z.boolean().default(true).describe("Render a PNG of the edited drawing and return it alongside the confirmation."),
     render_scale: z.number().positive().optional().describe("Zoom factor for the render, when render is true."),
   })

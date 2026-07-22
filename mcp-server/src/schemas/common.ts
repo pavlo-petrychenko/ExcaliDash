@@ -68,6 +68,31 @@ export function buildPaginationEnvelope<T>(total: number, offset: number, items:
   };
 }
 
+/**
+ * Wraps `schema` so a JSON-encoded STRING is transparently parsed before
+ * validation. Real-world agent SDKs sometimes stringify deeply-nested tool
+ * args — a `spec`/`ops`/`region`/etc. parameter arrives as `"{...}"` (or
+ * `"[...]"`) instead of the real object/array the tool's schema declares —
+ * even though the same SDKs pass genuine objects most of the time. Non-string
+ * values pass through untouched (the common case); a string that fails to
+ * `JSON.parse` fails validation with an actionable message instead of zod's
+ * generic "expected object, received string".
+ */
+export function jsonTolerant<T extends z.ZodTypeAny>(schema: T, paramName: string, kind: "object" | "array" = "object") {
+  return z.preprocess((value, ctx) => {
+    if (typeof value !== "string") return value;
+    try {
+      return JSON.parse(value);
+    } catch {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${paramName} arrived as a string that is not valid JSON — pass a JSON ${kind}, not a JSON-encoded string.`,
+      });
+      return z.NEVER;
+    }
+  }, schema);
+}
+
 export const LimitSchema = z
   .number()
   .int()

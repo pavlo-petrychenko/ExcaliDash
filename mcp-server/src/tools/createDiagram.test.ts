@@ -113,6 +113,47 @@ describe("excalidash_create_diagram", () => {
     expect(content[0]?.text).toMatch(/scope/i);
   });
 
+  it("creates from a spec that arrived JSON-encoded as a string (agent SDKs sometimes stringify nested tool args)", async () => {
+    let posted: RecordedRequest | undefined;
+    harness = await startHarness(
+      routedResponder({
+        "POST /drawings": (request) => {
+          posted = request;
+          const body = request.body as Record<string, unknown>;
+          return { status: 201, body: drawingResponse({ elements: body.elements, appState: body.appState }) };
+        },
+      }),
+    );
+
+    const result = await harness.client.callTool({
+      name: "excalidash_create_diagram",
+      arguments: {
+        name: "Flow",
+        // The bug: a real agent stringifies this nested object instead of sending it as a genuine object.
+        spec: JSON.stringify({ nodes: [{ id: "a", label: "A" }, { id: "b", label: "B" }], edges: [{ from: "a", to: "b" }] }),
+      },
+    });
+
+    expect(result.isError).toBeFalsy();
+    const body = posted!.body as { elements: unknown[] };
+    expect(Array.isArray(body.elements)).toBe(true);
+    expect(body.elements.length).toBeGreaterThan(0);
+    const content = result.content as Array<{ type: string; mimeType?: string }>;
+    expect(content.some((block) => block.type === "image" && block.mimeType === "image/png")).toBe(true);
+  });
+
+  it("fails with an actionable message when spec is a string that isn't valid JSON, instead of a generic zod error", async () => {
+    harness = await startHarness(routedResponder({}));
+    const result = await harness.client.callTool({
+      name: "excalidash_create_diagram",
+      arguments: { name: "Flow", spec: "{not valid json" },
+    });
+    expect(result.isError).toBe(true);
+    const content = result.content as Array<{ text?: string }>;
+    expect(content[0]?.text).toMatch(/spec arrived as a string that is not valid JSON/i);
+    expect(harness.requests).toHaveLength(0);
+  });
+
   it("rejects the tool call before hitting the network when exactly-one-of is violated", async () => {
     harness = await startHarness(routedResponder({}));
     const result = await harness.client.callTool({

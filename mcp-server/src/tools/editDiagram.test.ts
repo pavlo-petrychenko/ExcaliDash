@@ -63,6 +63,71 @@ describe("excalidash_edit_diagram", () => {
     expect(content.some((b) => b.text?.includes("version 5"))).toBe(true);
   });
 
+  it("applies ops that arrived JSON-encoded as a string (agent SDKs sometimes stringify nested tool args)", async () => {
+    const elements = await twoNodeElements();
+    let putBody: Record<string, unknown> | undefined;
+    harness = await startHarness(
+      routedResponder({
+        "GET /drawings/d1": () => ({ status: 200, body: drawingResponse({ elements, version: 4 }) }),
+        "PUT /drawings/d1": (request) => {
+          putBody = request.body as Record<string, unknown>;
+          return { status: 200, body: drawingResponse({ elements: putBody.elements, version: 5 }) };
+        },
+      }),
+    );
+
+    const result = await harness.client.callTool({
+      name: "excalidash_edit_diagram",
+      arguments: {
+        drawing_id: "d1",
+        // The bug: the whole `ops` array arrives stringified instead of a genuine array.
+        ops: JSON.stringify([{ action: "add", skeleton: [{ type: "rectangle", x: 400, y: 0, width: 180, height: 80, id: "c" }] }]),
+        render: false,
+      },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect((putBody?.elements as unknown[]).length).toBeGreaterThan(elements.length);
+  });
+
+  it("applies an ops array whose 'add' op carries a stringified spec (nested field stringified, outer array real)", async () => {
+    const elements = await twoNodeElements();
+    let putBody: Record<string, unknown> | undefined;
+    harness = await startHarness(
+      routedResponder({
+        "GET /drawings/d1": () => ({ status: 200, body: drawingResponse({ elements, version: 4 }) }),
+        "PUT /drawings/d1": (request) => {
+          putBody = request.body as Record<string, unknown>;
+          return { status: 200, body: drawingResponse({ elements: putBody.elements, version: 5 }) };
+        },
+      }),
+    );
+
+    const result = await harness.client.callTool({
+      name: "excalidash_edit_diagram",
+      arguments: {
+        drawing_id: "d1",
+        ops: [{ action: "add", spec: JSON.stringify({ nodes: [{ id: "c", label: "C" }] }) }],
+        render: false,
+      },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect((putBody?.elements as unknown[]).length).toBeGreaterThan(elements.length);
+  });
+
+  it("fails with an actionable message when ops is a string that isn't valid JSON, instead of a generic zod error", async () => {
+    harness = await startHarness(routedResponder({}));
+    const result = await harness.client.callTool({
+      name: "excalidash_edit_diagram",
+      arguments: { drawing_id: "d1", ops: "{not valid json" },
+    });
+    expect(result.isError).toBe(true);
+    const content = result.content as Array<{ text?: string }>;
+    expect(content[0]?.text).toMatch(/ops arrived as a string that is not valid JSON/i);
+    expect(harness.requests).toHaveLength(0);
+  });
+
   it("re-applies the same ops onto a fresh base and retries exactly once on a 409", async () => {
     const elementsV4 = await twoNodeElements();
     let getCount = 0;
