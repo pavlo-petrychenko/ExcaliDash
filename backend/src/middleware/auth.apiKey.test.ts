@@ -176,8 +176,8 @@ describe("auth middleware API key authentication", () => {
     prisma.apiKey.update.mockResolvedValue({});
     const { optionalAuth } = createAuthMiddleware({ prisma, authModeService });
     const req = createRequest({
-      method: "GET",
-      originalUrl: "/drawings/drawing-1/history",
+      method: "POST",
+      originalUrl: "/drawings/drawing-1/trim",
       headers: {
         authorization: `Bearer ${generated.token}`,
       },
