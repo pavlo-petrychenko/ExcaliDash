@@ -80,4 +80,37 @@ describe("loadConfig", () => {
     const config = loadConfig({ ...BASE_ENV, EXCALIDASH_MAX_LONG_SIDE: "800" });
     expect(config.maxLongSide).toBe(800);
   });
+
+  it("leaves cfAccess undefined when neither Cloudflare Access var is set", () => {
+    const config = loadConfig(BASE_ENV);
+    expect(config.cfAccess).toBeUndefined();
+  });
+
+  it("parses cfAccess when both Cloudflare Access vars are set", () => {
+    const config = loadConfig({
+      ...BASE_ENV,
+      EXCALIDASH_CF_ACCESS_CLIENT_ID: "cid.access",
+      EXCALIDASH_CF_ACCESS_CLIENT_SECRET: "csecret",
+    });
+    expect(config.cfAccess).toEqual({ clientId: "cid.access", clientSecret: "csecret" });
+  });
+
+  it("throws an actionable ConfigError when only EXCALIDASH_CF_ACCESS_CLIENT_ID is set", () => {
+    expect(() =>
+      loadConfig({ ...BASE_ENV, EXCALIDASH_CF_ACCESS_CLIENT_ID: "cid.access" }),
+    ).toThrow(ConfigError);
+    try {
+      loadConfig({ ...BASE_ENV, EXCALIDASH_CF_ACCESS_CLIENT_ID: "cid.access" });
+      expect.unreachable("loadConfig should have thrown");
+    } catch (error) {
+      expect((error as ConfigError).message).toContain("EXCALIDASH_CF_ACCESS_CLIENT_ID");
+      expect((error as ConfigError).message).toContain("EXCALIDASH_CF_ACCESS_CLIENT_SECRET");
+    }
+  });
+
+  it("throws an actionable ConfigError when only EXCALIDASH_CF_ACCESS_CLIENT_SECRET is set", () => {
+    expect(() =>
+      loadConfig({ ...BASE_ENV, EXCALIDASH_CF_ACCESS_CLIENT_SECRET: "csecret" }),
+    ).toThrow(ConfigError);
+  });
 });

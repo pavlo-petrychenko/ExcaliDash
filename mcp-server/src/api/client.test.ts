@@ -122,6 +122,47 @@ describe("createApiClient — redirects", () => {
     const client = createApiClient(baseConfig);
     await expect(client.request("GET", "/drawings")).rejects.toMatchObject({ kind: "network" });
   });
+
+  it("maps a 302 to cloudflareaccess.com to an actionable Cloudflare Access error", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response("", {
+        status: 302,
+        headers: { location: "https://myteam.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=%2F" },
+      }),
+    );
+    const client = createApiClient(baseConfig);
+    await expect(client.request("GET", "/drawings")).rejects.toMatchObject({
+      kind: "network",
+      message: expect.stringContaining("Cloudflare Access"),
+    });
+  });
+});
+
+describe("createApiClient — Cloudflare Access headers", () => {
+  it("sends CF-Access-Client-Id/Secret headers when configured", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+    const client = createApiClient({
+      ...baseConfig,
+      cfAccess: { clientId: "cid.access", clientSecret: "shh" },
+    });
+    await client.request("GET", "/drawings");
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers["CF-Access-Client-Id"]).toBe("cid.access");
+    expect(headers["CF-Access-Client-Secret"]).toBe("shh");
+  });
+
+  it("omits Cloudflare Access headers when not configured", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { ok: true }));
+    const client = createApiClient(baseConfig);
+    await client.request("GET", "/drawings");
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers["CF-Access-Client-Id"]).toBeUndefined();
+    expect(headers["CF-Access-Client-Secret"]).toBeUndefined();
+  });
 });
 
 describe("createApiClient — error mapping", () => {

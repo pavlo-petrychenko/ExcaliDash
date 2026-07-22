@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApiError, mapHttpError, mapNetworkError } from "./errors.js";
+import { ApiError, mapHttpError, mapNetworkError, mapRedirectError } from "./errors.js";
 
 describe("mapHttpError", () => {
   it("maps 401 to an actionable unauthorized message", () => {
@@ -70,5 +70,32 @@ describe("mapNetworkError", () => {
     expect(error.kind).toBe("network");
     expect(error.message).toContain("Cannot reach");
     expect(error.cause).toBe(cause);
+  });
+});
+
+describe("mapRedirectError", () => {
+  it("maps a cloudflareaccess.com redirect to an actionable Cloudflare Access message", () => {
+    const error = mapRedirectError(
+      302,
+      "https://myteam.cloudflareaccess.com/cdn-cgi/access/login?redirect_url=%2F",
+      "https://excalidraw.pavlop.dev",
+    );
+    expect(error.kind).toBe("network");
+    expect(error.message).toContain("Cloudflare Access");
+    expect(error.message).toContain("EXCALIDASH_CF_ACCESS_CLIENT_ID");
+    expect(error.message).toContain("EXCALIDASH_CF_ACCESS_CLIENT_SECRET");
+  });
+
+  it("falls back to the generic refuse-to-follow message for a non-Cloudflare-Access redirect", () => {
+    const error = mapRedirectError(302, "/login", "https://excalidraw.pavlop.dev");
+    expect(error.kind).toBe("network");
+    expect(error.message).toContain("unexpected redirect");
+    expect(error.message).not.toContain("Cloudflare Access");
+  });
+
+  it("handles a missing Location header without throwing", () => {
+    const error = mapRedirectError(302, null, "https://excalidraw.pavlop.dev");
+    expect(error.kind).toBe("network");
+    expect(error.message).toContain("unexpected redirect");
   });
 });

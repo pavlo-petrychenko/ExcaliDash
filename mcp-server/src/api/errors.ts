@@ -94,6 +94,30 @@ export function mapHttpError(status: number, body: unknown): ApiError {
   }
 }
 
+/**
+ * Maps a manually-intercepted 3xx response (client.ts always sends `redirect: "manual"`,
+ * so a redirect is surfaced here rather than silently followed) to an `ApiError`. A
+ * `Location` pointing at `cloudflareaccess.com` means the ExcaliDash backend sits behind
+ * Cloudflare Access and every request needs a service token — name the two env vars so
+ * the fix is actionable instead of a generic "unexpected redirect".
+ */
+export function mapRedirectError(status: number, location: string | null, baseUrl: string): ApiError {
+  if (location?.includes("cloudflareaccess.com")) {
+    return new ApiError(
+      "network",
+      `ExcaliDash backend at ${baseUrl} is behind Cloudflare Access (redirected to ${location}). ` +
+        "Set EXCALIDASH_CF_ACCESS_CLIENT_ID and EXCALIDASH_CF_ACCESS_CLIENT_SECRET to a Cloudflare Access " +
+        "service token for this Access application.",
+      { status },
+    );
+  }
+  return new ApiError(
+    "network",
+    `ExcaliDash backend at ${baseUrl} returned an unexpected redirect (HTTP ${status}); refusing to follow it.`,
+    { status },
+  );
+}
+
 /** Maps a fetch-level failure (DNS/TLS/connection refused, or our own timeout abort) to an `ApiError`. */
 export function mapNetworkError(error: unknown, baseUrl: string): ApiError {
   if (error instanceof Error && error.name === "AbortError") {

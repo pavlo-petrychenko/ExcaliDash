@@ -81,6 +81,10 @@ Once published: `claude mcp add ... -- npx -y excalidash-mcp`.
 | `EXCALIDASH_RENDER_ENGINE` | no | `resvg` | `resvg` (default, no browser) or `browser` (Playwright/Chromium, opt-in — see below). |
 | `EXCALIDASH_REQUEST_TIMEOUT_MS` | no | `30000` | Timeout for calls to the ExcaliDash backend. |
 | `EXCALIDASH_MAX_LONG_SIDE` | no | `1200` | Default pixel clamp on the longest side of a rendered image (token-cost safety). |
+| `EXCALIDASH_CF_ACCESS_CLIENT_ID` | no† | — | Cloudflare Access service-token Client ID. Sent as the `CF-Access-Client-Id` header on every request. See "Behind Cloudflare Access" below. |
+| `EXCALIDASH_CF_ACCESS_CLIENT_SECRET` | no† | — | Cloudflare Access service-token Client Secret. Sent as the `CF-Access-Client-Secret` header on every request. Never logged, redacted like the API key. |
+
+† Both-or-neither: setting only one of `EXCALIDASH_CF_ACCESS_CLIENT_ID`/`EXCALIDASH_CF_ACCESS_CLIENT_SECRET` fails fast at startup with an actionable message.
 
 ## Render engine
 
@@ -105,6 +109,29 @@ then set `EXCALIDASH_RENDER_ENGINE=browser`. If you set this without
 installing `playwright`, `excalidash_render` (and any `render:true` call)
 returns an actionable error telling you to install it or switch back to
 `resvg`.
+
+## Behind Cloudflare Access
+
+If your ExcaliDash instance sits behind [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/policies/access/),
+every plain request gets redirected to a `cloudflareaccess.com` login page — the
+server reports this with an actionable error rather than a confusing generic
+redirect failure. Create a **service token** for the Access application (Zero
+Trust dashboard → Access → Service Auth → Service Tokens) and pass its Client
+ID/Secret as two extra env vars, both required together:
+
+```sh
+claude mcp add --scope user --transport stdio excalidash \
+  --env EXCALIDASH_API_KEY=exd_your_token_here \
+  --env EXCALIDASH_BASE_URL=https://excalidraw.pavlop.dev \
+  --env EXCALIDASH_CF_ACCESS_CLIENT_ID=your-client-id.access \
+  --env EXCALIDASH_CF_ACCESS_CLIENT_SECRET=your-client-secret \
+  -- node /absolute/path/to/mcp-server/dist/index.js
+```
+
+When set, both `CF-Access-Client-Id`/`CF-Access-Client-Secret` headers are sent
+on every request to the backend — including the image fetches
+`excalidash_render` makes when resolving a scene's `files` map. The secret is
+treated exactly like the API key: never logged, redacted from any error text.
 
 ## Security notes
 

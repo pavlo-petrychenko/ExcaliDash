@@ -1,7 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadConfig } from "../config.js";
 import type { BinaryFiles } from "../scene/excalidrawVendor.js";
 import { isDisallowedIp, resolveImages } from "./images.js";
+
+// Only the Cloudflare Access header tests below need a mocked DNS lookup (to reach a
+// "public IP" without a real network call) — every other test in this file resolves
+// via the real `node:dns/promises` against `localhost`, so the mock must fall through
+// to the actual implementation by default.
+vi.mock("node:dns/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:dns/promises")>();
+  return { ...actual, lookup: vi.fn(actual.lookup) };
+});
 
 function file(dataURL: string): BinaryFiles[string] {
   return { id: "f1" as never, mimeType: "image/png" as never, dataURL: dataURL as never, created: 0 };
@@ -73,6 +82,55 @@ describe("resolveImages: SSRF guard", () => {
   it("returns an empty result for null/undefined files", async () => {
     expect(await resolveImages(undefined, LOCALHOST_CONFIG)).toEqual({ files: {}, warnings: [] });
     expect(await resolveImages(null, LOCALHOST_CONFIG)).toEqual({ files: {}, warnings: [] });
+  });
+});
+
+describe("resolveImages: Cloudflare Access headers", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("sends CF-Access-Client-Id/Secret headers on the image fetch when configured", async () => {
+    const { lookup } = await import("node:dns/promises");
+    vi.mocked(lookup).mockResolvedValueOnce({ address: "8.8.8.8", family: 4 });
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { "content-type": "image/png" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const config = loadConfig({
+      EXCALIDASH_API_KEY: "exd_test",
+      EXCALIDASH_BASE_URL: "https://example.com",
+      EXCALIDASH_CF_ACCESS_CLIENT_ID: "cid.access",
+      EXCALIDASH_CF_ACCESS_CLIENT_SECRET: "shh",
+    });
+    const files: BinaryFiles = { a: file("https://example.com/api/files/x.png") };
+    const result = await resolveImages(files, config);
+
+    expect(result.files.a).toBeDefined();
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers["CF-Access-Client-Id"]).toBe("cid.access");
+    expect(headers["CF-Access-Client-Secret"]).toBe("shh");
+  });
+
+  it("omits Cloudflare Access headers on the image fetch when not configured", async () => {
+    const { lookup } = await import("node:dns/promises");
+    vi.mocked(lookup).mockResolvedValueOnce({ address: "8.8.8.8", family: 4 });
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(new Uint8Array([1, 2, 3]), { status: 200, headers: { "content-type": "image/png" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const config = loadConfig({ EXCALIDASH_API_KEY: "exd_test", EXCALIDASH_BASE_URL: "https://example.com" });
+    const files: BinaryFiles = { a: file("https://example.com/api/files/x.png") };
+    const result = await resolveImages(files, config);
+
+    expect(result.files.a).toBeDefined();
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers["CF-Access-Client-Id"]).toBeUndefined();
+    expect(headers["CF-Access-Client-Secret"]).toBeUndefined();
   });
 });
 

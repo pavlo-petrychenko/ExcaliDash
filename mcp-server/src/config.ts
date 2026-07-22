@@ -27,6 +27,15 @@ export interface McpConfig {
   requestTimeoutMs: number;
   /** Default longest-side pixel clamp applied to rendered images. */
   maxLongSide: number;
+  /**
+   * Cloudflare Access service-token credentials. Set together (both-or-neither)
+   * from `EXCALIDASH_CF_ACCESS_CLIENT_ID`/`EXCALIDASH_CF_ACCESS_CLIENT_SECRET`
+   * when the ExcaliDash backend sits behind Cloudflare Access. When present,
+   * every outbound request (api/client.ts, render/images.ts) sends both as the
+   * `CF-Access-Client-Id`/`CF-Access-Client-Secret` headers. `undefined` when
+   * neither var is set — the backend is assumed reachable without Access.
+   */
+  cfAccess?: { clientId: string; clientSecret: string };
 }
 
 /** Thrown for any invalid/missing configuration; callers print `.message` to stderr and exit(1). */
@@ -78,6 +87,30 @@ function parseBaseUrl(raw: string | undefined, allowInsecure: boolean): string {
 }
 
 /**
+ * Parses the optional Cloudflare Access service-token pair. Both-or-neither: setting
+ * only one of `EXCALIDASH_CF_ACCESS_CLIENT_ID`/`EXCALIDASH_CF_ACCESS_CLIENT_SECRET` is
+ * a configuration mistake (a token that will never authenticate), not a partial state,
+ * so it fails fast here rather than surfacing as a confusing Cloudflare Access redirect
+ * later. The secret is treated like the API key: never logged (see `api/client.ts`'s
+ * `redact`), never included in error messages.
+ */
+function parseCfAccess(
+  env: Record<string, string | undefined>,
+): { clientId: string; clientSecret: string } | undefined {
+  const clientId = env.EXCALIDASH_CF_ACCESS_CLIENT_ID?.trim();
+  const clientSecret = env.EXCALIDASH_CF_ACCESS_CLIENT_SECRET?.trim();
+  if (!clientId && !clientSecret) return undefined;
+  if (!clientId || !clientSecret) {
+    throw new ConfigError(
+      "EXCALIDASH_CF_ACCESS_CLIENT_ID and EXCALIDASH_CF_ACCESS_CLIENT_SECRET must both be set, or neither " +
+        `(only ${clientId ? "EXCALIDASH_CF_ACCESS_CLIENT_ID" : "EXCALIDASH_CF_ACCESS_CLIENT_SECRET"} was provided). ` +
+        "Create a Cloudflare Access service token for this Access application and set both.",
+    );
+  }
+  return { clientId, clientSecret };
+}
+
+/**
  * Parses and validates the excalidash-mcp environment. Pure function (no caching, no
  * process.exit) so tests can pass an arbitrary env map and assert on thrown ConfigError.
  */
@@ -104,8 +137,22 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     DEFAULT_MAX_LONG_SIDE,
     "EXCALIDASH_MAX_LONG_SIDE",
   );
+  const cfAccess = parseCfAccess(env);
 
-  return { apiKey, baseUrl, renderEngine, allowInsecure, requestTimeoutMs, maxLongSide };
+  return { apiKey, baseUrl, renderEngine, allowInsecure, requestTimeoutMs, maxLongSide, cfAccess };
+}
+
+/**
+ * `CF-Access-Client-Id`/`CF-Access-Client-Secret` headers for `config.cfAccess`, or `{}`
+ * when Cloudflare Access isn't configured — spread this into every outbound request's
+ * headers (api/client.ts, render/images.ts) so both fetch paths stay in lockstep.
+ */
+export function cfAccessHeaders(config: Pick<McpConfig, "cfAccess">): Record<string, string> {
+  if (!config.cfAccess) return {};
+  return {
+    "CF-Access-Client-Id": config.cfAccess.clientId,
+    "CF-Access-Client-Secret": config.cfAccess.clientSecret,
+  };
 }
 
 let cachedConfig: McpConfig | undefined;

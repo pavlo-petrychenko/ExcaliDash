@@ -9,8 +9,8 @@
  * stdout is reserved for JSON-RPC; any diagnostic here goes to stderr with the
  * API key redacted — never log `Authorization` or the raw key.
  */
-import { getConfig, type McpConfig } from "../config.js";
-import { ApiError, mapHttpError, mapNetworkError } from "./errors.js";
+import { cfAccessHeaders, getConfig, type McpConfig } from "../config.js";
+import { ApiError, mapHttpError, mapNetworkError, mapRedirectError } from "./errors.js";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "HEAD";
 
@@ -92,6 +92,7 @@ export function createApiClient(config: McpConfig = getConfig()): ApiClient {
           headers: {
             Authorization: `Bearer ${config.apiKey}`,
             Accept: "application/json",
+            ...cfAccessHeaders(config),
             ...(options.body !== undefined ? { "Content-Type": "application/json" } : {}),
           },
           body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
@@ -103,11 +104,7 @@ export function createApiClient(config: McpConfig = getConfig()): ApiClient {
       }
 
       if (response.status >= 300 && response.status < 400) {
-        const error = new ApiError(
-          "network",
-          `ExcaliDash backend at ${config.baseUrl} returned an unexpected redirect (HTTP ${response.status}); refusing to follow it.`,
-          { status: response.status },
-        );
+        const error = mapRedirectError(response.status, response.headers.get("location"), config.baseUrl);
         logRequestError(config.apiKey, method, path, error);
         throw error;
       }

@@ -17,7 +17,7 @@
  * (the image element then draws as empty rather than crashing the export).
  */
 import { lookup } from "node:dns/promises";
-import { getConfig, type McpConfig } from "../config.js";
+import { cfAccessHeaders, getConfig, type McpConfig } from "../config.js";
 import type { BinaryFiles } from "../scene/excalidrawVendor.js";
 
 /** `BinaryFileData["dataURL"]` is a branded `string & {_brand:"DataURL"}` — this file only ever builds well-formed data: URIs. */
@@ -52,7 +52,7 @@ export async function resolveImages(
       continue;
     }
 
-    const outcome = await resolveRemoteImage(file.dataURL, allowedHost, config.allowInsecure);
+    const outcome = await resolveRemoteImage(file.dataURL, allowedHost, config.allowInsecure, config.cfAccess);
     if (outcome.ok) {
       resolved[id] = { ...file, dataURL: asDataURL(outcome.dataURL) };
     } else {
@@ -69,6 +69,7 @@ async function resolveRemoteImage(
   url: string,
   allowedHost: string | undefined,
   allowInsecure: boolean,
+  cfAccess: McpConfig["cfAccess"],
 ): Promise<RemoteImageOutcome> {
   let parsed: URL;
   try {
@@ -97,7 +98,11 @@ async function resolveRemoteImage(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(parsed.toString(), { redirect: "manual", signal: controller.signal });
+    const response = await fetch(parsed.toString(), {
+      redirect: "manual",
+      signal: controller.signal,
+      headers: cfAccessHeaders({ cfAccess }),
+    });
     if (!response.ok) {
       return { ok: false, reason: `HTTP ${response.status}` };
     }
