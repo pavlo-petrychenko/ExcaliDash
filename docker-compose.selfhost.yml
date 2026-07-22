@@ -12,10 +12,11 @@
 
 # --- excalidash-mcp deploy note (plan §7, task T9) ------------------------
 # Option A APPLIED: `backend` now builds from this repo's source
-# (backend/Dockerfile) instead of pulling the pinned upstream image, so
-# backend/src/middleware/auth.ts's additive shared/duplicate/history/restore
-# route reachability (still under the existing drawings:read/drawings:write
-# scopes — no new scope, see plan §3.1/§0.2 #2) reaches this deployment.
+# (context: ./backend, dockerfile: Dockerfile) instead of pulling the pinned
+# upstream image, so backend/src/middleware/auth.ts's additive
+# shared/duplicate/history/restore route reachability (still under the
+# existing drawings:read/drawings:write scopes — no new scope, see plan
+# §3.1/§0.2 #2) reaches this deployment.
 # `frontend` below stays pinned to the upstream tag (Option A allows that).
 # Do NOT reintroduce a custom `networks:` block (see the comment near the
 # bottom of this file — commit 142d25c removed it so Coolify's Traefik can
@@ -25,8 +26,8 @@
 services:
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     restart: unless-stopped
     environment:
       - DATABASE_PROVIDER=sqlite
