@@ -17,7 +17,9 @@
 # shared/duplicate/history/restore route reachability (still under the
 # existing drawings:read/drawings:write scopes — no new scope, see plan
 # §3.1/§0.2 #2) reaches this deployment.
-# `frontend` below stays pinned to the upstream tag (Option A allows that).
+# `frontend` now also builds from source (context: ., dockerfile:
+# frontend/Dockerfile), since the fork's frontend has the API-keys profile UI
+# the upstream image lacks.
 # Do NOT reintroduce a custom `networks:` block (see the comment near the
 # bottom of this file — commit 142d25c removed it so Coolify's Traefik can
 # route). excalidash-mcp itself is a local stdio subprocess and is never
@@ -54,7 +56,9 @@ services:
       retries: 3
 
   frontend:
-    image: zimengxiong/excalidash-frontend:0.5.1
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
     restart: unless-stopped
     environment:
       - BACKEND_URL=backend:8000
