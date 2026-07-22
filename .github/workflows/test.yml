@@ -168,6 +168,53 @@ jobs:
           path: e2e/test-results/
           retention-days: 7
 
+  mcp-tests:
+    name: MCP Server Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+
+      - name: Generate Prisma client
+        run: |
+          cd backend
+          npx prisma generate
+
+      - name: Install mcp-server dependencies
+        run: |
+          cd mcp-server
+          npm ci
+
+      - name: Build mcp-server
+        run: |
+          cd mcp-server
+          npm run build
+
+      - name: Run mcp-server unit tests
+        run: |
+          cd mcp-server
+          npm test
+
+      - name: Check mcp-server line-count convention
+        run: |
+          cd mcp-server
+          npm run check:max-lines
+
+      - name: Run mcp-server end-to-end lifecycle test
+        run: |
+          cd mcp-server
+          npm run test:e2e
+
   # Security tests for data sanitization
   security-tests:
     name: Security Sanitization Tests

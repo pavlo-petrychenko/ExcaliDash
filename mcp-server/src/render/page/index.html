@@ -1,0 +1,18 @@
+<!doctype html>
+<!--
+  Blank shell for the opt-in browser render engine (`render/browser.ts`, plan
+  §4-render "OPT-IN backend — Playwright/Chromium"). `browser.ts` navigates
+  Chromium here via a `file://` URL, then injects the browser-targeted vendor
+  bundle (`dist/vendor/excalidraw-core.browser.js`, built by
+  `scripts/build-vendor.mjs`'s `buildBrowserBundle()`) with Playwright's
+  `addScriptTag` — a real page load beats an inline data: URL for CSP/module
+  resolution, and needs no CDN (research 07 §7.3: "serve the real Excalidraw
+  bundle locally").
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>excalidash-mcp render page</title>
+  </head>
+  <body></body>
+</html>

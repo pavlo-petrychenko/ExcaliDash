@@ -1,6 +1,7 @@
 # Dependencies
 frontend/node_modules
 backend/node_modules
+mcp-server/node_modules
 
 # Database
 backend/prisma/*.db
@@ -43,6 +44,7 @@ backend/src/generated/
 frontend/dist/
 frontend/build/
 backend/dist/
+mcp-server/dist/
 
 # Generated Excalidraw assets (copied from node_modules for runtime)
 frontend/public/excalidraw-assets/

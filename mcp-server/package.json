@@ -1,0 +1,38 @@
+{
+  "name": "excalidash-mcp",
+  "version": "0.1.0",
+  "description": "Local stdio MCP server for authoring, editing, and rendering ExcaliDash diagrams.",
+  "type": "module",
+  "bin": {
+    "excalidash-mcp": "dist/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node scripts/build-vendor.mjs && tsc",
+    "start": "node dist/index.js",
+    "pretest": "node scripts/build-vendor.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "node scripts/e2e-local.mjs",
+    "check:max-lines": "node ../scripts/check-source-line-count.cjs"
+  },
+  "dependencies": {
+    "@excalidraw/excalidraw": "0.18.1",
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "@resvg/resvg-js": "^2.6.0",
+    "jsdom": "^24.1.3",
+    "zod": "^3.23.8"
+  },
+  "optionalDependencies": {
+    "playwright": "^1.47.0"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^20.14.0",
+    "esbuild": "^0.21.5",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}
